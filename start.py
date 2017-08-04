@@ -3,7 +3,6 @@
 
 import sys
 import logging
-import time
 
 from proxytools.proxy_tester import load_proxies, check_proxies
 from proxytools.proxy_scrapper import scrap_sockslist_net, scrap_vipsocks24_net
@@ -89,12 +88,6 @@ if __name__ == '__main__':
         log.setLevel(logging.DEBUG)
         log.debug('Running in verbose mode (-v).')
 
-    # Run periodical proxy refresh thread.
-    if args.restart_work > 0:
-        while True:
-            work_cycle(args)
-            time.sleep(args.restart_work)
-    else:
-        work_cycle(args)
+    work_cycle(args)
 
     sys.exit(0)

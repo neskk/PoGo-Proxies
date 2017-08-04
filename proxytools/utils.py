@@ -32,10 +32,6 @@ def get_args():
                         help='Maximum concurrent proxy testing threads.',
                         default=100,
                         type=int)
-    parser.add_argument('-rw', '--restart-work',
-                        help=('Restart work cycle after a period of time ' +
-                              'specified in seconds. (0 to disable).'),
-                        type=int, default=0)
     parser.add_argument('-ic', '--ignore-country',
                         help='Ignore proxies from countries in this list.',
                         action='append', default=['china'])
