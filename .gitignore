@@ -1,2 +1,3 @@
 proxies.txt
 working_proxies.txt
+*.pyc

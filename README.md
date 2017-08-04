@@ -2,7 +2,8 @@
 Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
 
 ## Credits
-Most work was grabbed from RocketMap (http://github.com/RocketMap/RocketMap).
+ - Proxy testing code came mostly from [RocketMap](http://github.com/RocketMap/RocketMap).
+ - Inspiration and ideas from [a-moss/Proxy Scraper for Pokemon Go](https://gist.github.com/a-moss/1578eb07b2570b5d97d85b1e93e81cc8s).
 
 ## Feature Support
  * Python 2
@@ -11,7 +12,7 @@ Most work was grabbed from RocketMap (http://github.com/RocketMap/RocketMap).
  * Output final proxy list in several formats (e.g. KinanCity proxy format)
 
 ## Documentation
-More documentation soon...
+More documentation will be added soon...
 
 ## Requirements
  * Python 2
@@ -21,9 +22,10 @@ More documentation soon...
 
 ## Usage
 ```
-proxy_tester.py [-h] [-v] -f PROXY_FILE [-o OUTPUT_FILE] [-r RETRIES]
+python start.py [-h] [-v] [-f PROXY_FILE] [-o OUTPUT_FILE] [-r RETRIES]
                 [-t TIMEOUT] [-bf BACKOFF_FACTOR] [-mt MAX_THREADS]
-                [--proxychains] [--kinan]
+                [-rw RESTART_WORK] [-ic IGNORE_COUNTRY] [--proxychains]
+                [--kinan]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -41,6 +43,15 @@ optional arguments:
                         retry will increase.
   -mt MAX_THREADS, --max-threads MAX_THREADS
                         Maximum concurrent proxy testing threads.
+  -rw RESTART_WORK, --restart-work RESTART_WORK
+                        Restart work cycle after a period of time specified in
+                        seconds. (0 to disable).
+  -ic IGNORE_COUNTRY, --ignore-country IGNORE_COUNTRY
+                        Ignore proxies from countries in this list.
   --proxychains         Output in proxychains-ng format.
   --kinan               Output in Kinan City format.
+
 ```
+
+## Useful developer resources
+ - [urllib3 - Session and HTTP Adapters](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)

@@ -1,24 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-import argparse
 import requests
 import logging
-import time
-
 from requests_futures.sessions import FuturesSession
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-logging.getLogger(
-    'requests.packages.urllib3.connectionpool').setLevel(logging.CRITICAL)
-
-logging.basicConfig(
-    format='%(asctime)s [%(threadName)15.15s][%(levelname)8.8s] %(message)s',
-    level=logging.INFO)
 log = logging.getLogger(__name__)
-
 
 # Proxy check result constants.
 check_result_ok = 0
@@ -168,32 +157,21 @@ def start_request_futures(ptc_session, niantic_session, proxy, timeout):
 
 
 # Load proxies and return a list.
-def load_proxies(args):
+def load_proxies(filename):
     proxies = []
 
     # Load proxies from the file. Override args.proxy if specified.
-    if args.proxy_file:
-        log.info('Loading proxies from file.')
+    with open(filename) as f:
+        for line in f:
+            stripped = line.strip()
 
-        with open(args.proxy_file) as f:
-            for line in f:
-                stripped = line.strip()
+            # Ignore blank lines and comment lines.
+            if len(stripped) == 0 or line.startswith('#'):
+                continue
 
-                # Ignore blank lines and comment lines.
-                if len(stripped) == 0 or line.startswith('#'):
-                    continue
-
-                proxies.append(stripped)
+            proxies.append(stripped)
 
         log.info('Loaded %d proxies.', len(proxies))
-
-        if len(proxies) == 0:
-            log.error('Proxy file was configured but ' +
-                      'no proxies were loaded. Aborting.')
-            sys.exit(1)
-    else:
-        log.error('No proxy file supplied. Aborting.')
-        sys.exit(1)
 
     return proxies
 
@@ -211,7 +189,7 @@ def check_proxies(args, proxies):
     if args.max_threads == 0:
         proxy_concurrency = total_proxies
 
-    log.info("Starting proxy test for %d proxies with %d concurrency.",
+    log.info('Starting proxy test for %d proxies with %d concurrency.',
              total_proxies, proxy_concurrency)
 
     # Get persistent session per host.
@@ -275,122 +253,3 @@ def check_proxies(args, proxies):
              total_proxies)
 
     return working_proxies
-
-
-# Thread function for periodical proxy updating.
-def proxies_refresher(args):
-    while True:
-        # Wait before refresh, because initial refresh is done at startup.
-        time.sleep(args.proxy_refresh)
-
-        try:
-            proxies = load_proxies(args)
-
-            if not args.proxy_skip_check:
-                proxies = check_proxies(args, proxies)
-
-            # If we've arrived here, we're guaranteed to have at least one
-            # working proxy. check_proxies stops the process if no proxies
-            # are left.
-
-            args.proxy = proxies
-            log.info('Regular proxy refresh complete.')
-        except Exception as e:
-            log.exception('Exception while refreshing proxies: %s.', e)
-
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--verbose",
-                        help="Run in the verbose mode.",
-                        action='store_true')
-    parser.add_argument("-f", "--proxy-file",
-                        help="Filename of proxy list to verify.",
-                        required=True)
-    parser.add_argument("-o", "--output-file",
-                        help="Output filename for working proxies.",
-                        default="working_proxies.txt")
-    parser.add_argument("-r", "--retries",
-                        help="Number of attempts to check each proxy.",
-                        default=5,
-                        type=int)
-    parser.add_argument("-t", "--timeout",
-                        help="Connection timeout. Default is 5 seconds.",
-                        default=5,
-                        type=float)
-    parser.add_argument("-bf", "--backoff-factor",
-                        help=('Factor (in seconds) by which the delay ' +
-                              'until next retry will increase.'),
-                        default=0.25,
-                        type=float)
-    parser.add_argument("-mt", "--max-threads",
-                        help="Maximum concurrent proxy testing threads.",
-                        default=100,
-                        type=int)
-    parser.add_argument("--proxychains",
-                        help="Output in proxychains-ng format.",
-                        action='store_true')
-    parser.add_argument("--kinan",
-                        help="Output in Kinan City format.",
-                        action='store_true')
-    args = parser.parse_args()
-
-    return args
-
-
-def export_proxies(filename, proxies):
-    with open(filename, "w") as file:
-        file.truncate()
-        for proxy in proxies:
-            file.write(proxy + "\n")
-
-
-def export_proxies_proxychains(filename, proxies):
-    with open(filename, "w") as file:
-        file.truncate()
-        for proxy in proxies:
-            # Split the protocol
-            protocol, address = proxy.split("://", 2)
-            # address = proxy.split("://")[1]
-            # Split the port
-            ip, port = address.split(":", 2)
-            # Write to file
-            file.write(protocol + " " + ip + " " + port + "\n")
-
-
-def export_proxies_kinan(filename, proxies):
-    with open(filename, "w") as file:
-        file.truncate()
-        file.write("[")
-        for proxy in proxies:
-            file.write(proxy + ",")
-
-        file.seek(-1, 1)
-        file.write("]\n")
-
-
-if __name__ == "__main__":
-    log.setLevel(logging.INFO)
-
-    args = get_args()
-    working_proxies = []
-
-    if args.verbose:
-        log.setLevel(logging.DEBUG)
-        log.debug("Running in verbose mode (-v).")
-
-    proxies = load_proxies(args)
-
-    working_proxies = check_proxies(args, proxies)
-
-    output_file = args.output_file
-    log.info('Writing final proxy list to: %s', output_file)
-
-    if args.proxychains:
-        export_proxies_proxychains(output_file, working_proxies)
-    elif args.kinan:
-        export_proxies_kinan(output_file, working_proxies)
-    else:
-        export_proxies(output_file, working_proxies)
-
-    sys.exit(0)
