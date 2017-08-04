@@ -10,7 +10,7 @@ from requests.adapters import HTTPAdapter
 
 from bs4 import BeautifulSoup
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('pogo-proxies')
 
 
 def download_webpage(target_url):

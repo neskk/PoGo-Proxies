@@ -7,7 +7,7 @@ from requests_futures.sessions import FuturesSession
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('pogo-proxies')
 
 # Proxy check result constants.
 check_result_ok = 0

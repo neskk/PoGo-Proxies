@@ -13,7 +13,7 @@ logging.getLogger(
 logging.basicConfig(
     format='%(asctime)s [%(threadName)15.15s][%(levelname)8.8s] %(message)s',
     level=logging.INFO)
-log = logging.getLogger(__name__)
+log = logging.getLogger('pogo-proxies')
 
 
 def export_proxies(filename, proxies):
