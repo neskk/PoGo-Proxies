@@ -23,9 +23,9 @@ More documentation will be added soon...
 ## Usage
 ```
 python start.py [-h] [-v] [-f PROXY_FILE] [-o OUTPUT_FILE] [-r RETRIES]
-                [-t TIMEOUT] [-bf BACKOFF_FACTOR] [-mt MAX_THREADS]
-                [-rw RESTART_WORK] [-ic IGNORE_COUNTRY] [--proxychains]
-                [--kinan]
+                [-t TIMEOUT] [-bf BACKOFF_FACTOR] [-mc MAX_CONCURRENCY]
+                [-bs BATCH_SIZE] [-ic IGNORE_COUNTRY] [--proxychains]
+                [--kinancity]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -41,16 +41,14 @@ optional arguments:
   -bf BACKOFF_FACTOR, --backoff-factor BACKOFF_FACTOR
                         Factor (in seconds) by which the delay until next
                         retry will increase.
-  -mt MAX_THREADS, --max-threads MAX_THREADS
-                        Maximum concurrent proxy testing threads.
-  -rw RESTART_WORK, --restart-work RESTART_WORK
-                        Restart work cycle after a period of time specified in
-                        seconds. (0 to disable).
+  -mc MAX_CONCURRENCY, --max-concurrency MAX_CONCURRENCY
+                        Maximum concurrent proxy testing requests.
+  -bs BATCH_SIZE, --batch-size BATCH_SIZE
+                        Check proxies in batches of limited size.
   -ic IGNORE_COUNTRY, --ignore-country IGNORE_COUNTRY
                         Ignore proxies from countries in this list.
   --proxychains         Output in proxychains-ng format.
-  --kinan               Output in Kinan City format.
-
+  --kinancity           Output in Kinan City format.
 ```
 
 ## Useful developer resources

@@ -59,19 +59,21 @@ def get_async_requests_session(num_retries, backoff_factor, pool_size,
 # Evaluates the status of PTC and Niantic request futures, and returns the
 # result (optionally with an error).
 # Warning: blocking! Can only get status code if request has finished.
-def get_proxy_test_status(proxy, future_ptc, future_niantic):
+def get_proxy_test_status(proxy, future_login, future_niantic, future_ptc):
     # Start by assuming everything is OK.
     check_result = check_result_ok
     proxy_error = None
 
     # Make sure we don't trip any code quality tools that test scope.
-    ptc_response = None
+    login_response = None
     niantic_response = None
-
+    ptc_response = None
     # Make sure both requests are completed.
     try:
-        ptc_response = future_ptc.result()
+        login_response = future_login.result()
         niantic_response = future_niantic.result()
+        if future_ptc:
+            ptc_response = future_ptc.result()
     except requests.exceptions.ConnectTimeout:
         proxy_error = 'Connection timeout for proxy {}.'.format(proxy)
         check_result = check_result_timeout
@@ -87,49 +89,49 @@ def get_proxy_test_status(proxy, future_ptc, future_niantic):
         return (proxy_error, check_result)
 
     # Evaluate response status code.
-    ptc_status = ptc_response.status_code
+    login_status = login_response.status_code
     niantic_status = niantic_response.status_code
+    if ptc_response:
+        ptc_status = ptc_response.status_code
+    else:
+        ptc_status = 200
 
     banned_status_codes = [403, 409]
 
-    if niantic_status == 200 and ptc_status == 200:
-        log.debug('Proxy %s is ok.', proxy)
-    elif (niantic_status in banned_status_codes or
+    if niantic_status == 200 and login_status == 200 and ptc_status == 200:
+        log.debug('Proxy %s is good.', proxy)
+
+    elif (login_status in banned_status_codes or
+          niantic_status in banned_status_codes or
           ptc_status in banned_status_codes):
-        proxy_error = ('Proxy {} is banned -'
-                       + ' got PTC status code: {}, Niantic status'
-                       + ' code: {}.').format(proxy,
-                                              ptc_status,
-                                              niantic_status)
+        proxy_error = ('Proxy {} is banned - PTC login status code: {}, ' +
+                       'Niantic status code: {}, PTC status code: {}.').format(
+                            proxy, login_status, niantic_status, ptc_status)
         check_result = check_result_banned
     else:
-        proxy_error = ('Wrong status codes -'
-                       + ' PTC: {},'
-                       + ' Niantic: {}.').format(ptc_status,
-                                                 niantic_status)
+        proxy_error = ('Proxy {} is bad - PTC login status code: {}, ' +
+                       'Niantic status code: {}, PTC status code: {}.').format(
+                            proxy, login_status, niantic_status, ptc_status)
         check_result = check_result_wrong
 
     # Explicitly release connection back to the pool, because we don't need
     # or want to consume the content.
-    ptc_response.close()
+    login_response.close()
     niantic_response.close()
+    if ptc_response:
+        ptc_response.close()
 
     return (proxy_error, check_result)
 
 
-# Requests to send for testing, which returns futures for Niantic and PTC.
-def start_request_futures(ptc_session, niantic_session, proxy, timeout):
-    # URLs for proxy testing.
-    proxy_test_url = 'https://pgorelease.nianticlabs.com/plfe/rpc'
+def start_request_ptc_login(session, proxy, timeout):
     proxy_test_ptc_url = 'https://sso.pokemon.com/sso/oauth2.0/authorize?' \
                          'client_id=mobile-app_pokemon-go&redirect_uri=' \
                          'https%3A%2F%2Fwww.nianticlabs.com%2Fpokemongo' \
                          '%2Ferror'
 
-    log.debug('Checking proxy: %s.', proxy)
-
     # Send request to pokemon.com.
-    future_ptc = ptc_session.get(
+    future_ptc = session.get(
         proxy_test_ptc_url,
         proxies={'http': proxy, 'https': proxy},
         timeout=timeout,
@@ -142,8 +144,14 @@ def start_request_futures(ptc_session, niantic_session, proxy, timeout):
         background_callback=__proxy_check_completed,
         stream=True)
 
+    return future_ptc
+
+
+def start_request_niantic(session, proxy, timeout):
+    proxy_test_url = 'https://pgorelease.nianticlabs.com/plfe/rpc'
+
     # Send request to nianticlabs.com.
-    future_niantic = niantic_session.post(
+    future_niantic = session.post(
         proxy_test_url,
         '',
         proxies={'http': proxy, 'https': proxy},
@@ -152,28 +160,29 @@ def start_request_futures(ptc_session, niantic_session, proxy, timeout):
         background_callback=__proxy_check_completed,
         stream=True)
 
-    # Return futures.
-    return (future_ptc, future_niantic)
+    return future_niantic
 
 
-# Load proxies and return a list.
-def load_proxies(filename):
-    proxies = []
+def start_request_ptc(session, proxy, timeout):
+    proxy_test_ptc_url = 'https://club.pokemon.com/us/pokemon-trainer-club'
 
-    # Load proxies from the file. Override args.proxy if specified.
-    with open(filename) as f:
-        for line in f:
-            stripped = line.strip()
+    log.debug('Checking proxy: %s.', proxy)
 
-            # Ignore blank lines and comment lines.
-            if len(stripped) == 0 or line.startswith('#'):
-                continue
+    # Send request to pokemon.com.
+    future_ptc = session.get(
+        proxy_test_ptc_url,
+        proxies={'http': proxy, 'https': proxy},
+        timeout=timeout,
+        headers={'User-Agent': ('pokemongo/1 '
+                                'CFNetwork/811.4.18 '
+                                'Darwin/16.5.0'),
+                 'Host': 'sso.pokemon.com',
+                 'X-Unity-Version': '5.5.1f1',
+                 'Connection': 'close'},
+        background_callback=__proxy_check_completed,
+        stream=True)
 
-            proxies.append(stripped)
-
-        log.info('Loaded %d proxies.', len(proxies))
-
-    return proxies
+    return future_ptc
 
 
 # Check all proxies and return a working list with proxies.
@@ -184,16 +193,16 @@ def check_proxies(args, proxies):
     check_results = [0] * (check_result_max + 1)
 
     # If proxy testing concurrency is set to automatic, use max.
-    proxy_concurrency = args.max_threads
+    proxy_concurrency = args.max_concurrency
 
-    if args.max_threads == 0:
+    if args.max_concurrency == 0:
         proxy_concurrency = total_proxies
 
     log.info('Starting proxy test for %d proxies with %d concurrency.',
              total_proxies, proxy_concurrency)
 
     # Get persistent session per host.
-    ptc_session = get_async_requests_session(
+    login_session = get_async_requests_session(
         args.retries,
         args.backoff_factor,
         proxy_concurrency)
@@ -201,6 +210,12 @@ def check_proxies(args, proxies):
         args.retries,
         args.backoff_factor,
         proxy_concurrency)
+
+    if args.kinancity:
+        ptc_session = get_async_requests_session(
+            args.retries,
+            args.backoff_factor,
+            proxy_concurrency)
 
     # List to hold background workers.
     proxy_queue = []
@@ -211,35 +226,68 @@ def check_proxies(args, proxies):
     if not show_warnings:
         log.info('Enable -v to see proxy testing details.')
 
-    # Start async requests & store futures.
-    for proxy in proxies:
-        future_ptc, future_niantic = start_request_futures(
-            ptc_session,
-            niantic_session,
-            proxy,
-            args.timeout)
+    num_checked = 0
+    while num_checked < total_proxies:
+        limit = min(args.batch_size, total_proxies - num_checked)
+        i = 0
+        while i < limit:
+            proxy = proxies.pop()
+            i += 1
 
-        proxy_queue.append((proxy, future_ptc, future_niantic))
+            # Start async requests & store futures.
+            future_login = start_request_ptc_login(
+                login_session,
+                proxy,
+                args.timeout)
 
-    # Wait here until all items in proxy_queue are processed, so we have a list
-    # of working proxies. We intentionally start all requests before handling
-    # them so they can asynchronously continue in the background, even as we're
-    # blocking to wait for one. The double loop is intentional.
-    for proxy, future_ptc, future_niantic in proxy_queue:
-        error, result = get_proxy_test_status(proxy,
-                                              future_ptc,
-                                              future_niantic)
+            future_niantic = start_request_ptc_login(
+                niantic_session,
+                proxy,
+                args.timeout)
 
-        check_results[result] += 1
-
-        if error:
-            # Decrease output amount if there are a lot of proxies.
-            if show_warnings:
-                log.warning(error)
+            if args.kinancity:
+                future_ptc = start_request_ptc(
+                    ptc_session,
+                    proxy,
+                    args.timeout)
             else:
-                log.debug(error)
-        else:
-            working_proxies.append(proxy)
+                future_ptc = None
+
+            items = (proxy, future_login, future_niantic, future_ptc)
+            proxy_queue.append(items)
+
+        # Wait here until all items in proxy_queue are processed.
+        # We intentionally start all requests before handling them so they can
+        # asynchronously continue in the background, even as we're blocking to
+        # wait for one. The double loop is intentional.
+        for proxy, future_login, future_niantic, future_ptc in proxy_queue:
+            error, result = get_proxy_test_status(proxy,
+                                                  future_login,
+                                                  future_niantic,
+                                                  future_ptc)
+            check_results[result] += 1
+
+            if error:
+                # Decrease output amount if there are a lot of proxies.
+                if show_warnings:
+                    log.warning(error)
+                else:
+                    log.debug(error)
+            else:
+                working_proxies.append(proxy)
+
+        num_checked += i
+        del proxy_queue[:]
+        other_fails = (check_results[check_result_failed] +
+                       check_results[check_result_wrong] +
+                       check_results[check_result_exception] +
+                       check_results[check_result_empty])
+        log.info('Checked %d out of %d proxies. Working: %d, banned: %d,'
+                 + ' timeout: %d, other fails: %d.',
+                 num_checked, total_proxies, len(working_proxies),
+                 check_results[check_result_banned],
+                 check_results[check_result_timeout],
+                 other_fails)
 
     other_fails = (check_results[check_result_failed] +
                    check_results[check_result_wrong] +
