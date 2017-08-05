@@ -6,6 +6,7 @@ import logging
 from requests_futures.sessions import FuturesSession
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
+from .utils import export
 
 log = logging.getLogger('pogo-proxies')
 
@@ -288,6 +289,7 @@ def check_proxies(args, proxies):
                  check_results[check_result_banned],
                  check_results[check_result_timeout],
                  other_fails)
+        export(args.output_file, working_proxies)
 
     other_fails = (check_results[check_result_failed] +
                    check_results[check_result_wrong] +
