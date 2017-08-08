@@ -33,18 +33,30 @@ def work_cycle(args):
         proxies.update(scrap_sockslist_net(args.ignore_country))
         proxies.update(scrap_vipsocks24_net())
 
-    working_proxies = check_proxies(args, proxies)
+    proxies = list(proxies)
+    if args.batch_size > 0:
+        chunks = [proxies[x:x+args.batch_size]
+                  for x in xrange(0, len(proxies), args.batch_size)]
+        working_proxies = []
+        for chunk in chunks:
+            working_proxies.extend(check_proxies(args, chunk))
+            output(args, working_proxies)
+    else:
+        working_proxies = check_proxies(args, proxies)
+        output(args, working_proxies)
 
+
+def output(args, proxies):
     output_file = args.output_file
     log.info('Writing %d working proxies to: %s',
-             len(working_proxies), output_file)
+             len(proxies), output_file)
 
     if args.proxychains:
-        utils.export_proxychains(output_file, working_proxies)
+        utils.export_proxychains(output_file, proxies)
     elif args.kinancity:
-        utils.export_kinancity(output_file, working_proxies)
+        utils.export_kinancity(output_file, proxies)
     else:
-        utils.export(output_file, working_proxies)
+        utils.export(output_file, proxies)
 
 
 if __name__ == '__main__':

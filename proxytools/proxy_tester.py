@@ -6,7 +6,6 @@ import logging
 from requests_futures.sessions import FuturesSession
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-from .utils import export
 
 log = logging.getLogger('pogo-proxies')
 
@@ -227,79 +226,59 @@ def check_proxies(args, proxies):
     if not show_warnings:
         log.info('Enable -v to see proxy testing details.')
 
-    num_checked = 0
-    while num_checked < total_proxies:
-        limit = min(args.batch_size, total_proxies - num_checked)
-        i = 0
-        while i < limit:
-            proxy = proxies.pop()
-            i += 1
+    for proxy in proxies:
+        # Start async requests & store futures.
+        future_login = start_request_ptc_login(
+            login_session,
+            proxy,
+            args.timeout)
 
-            # Start async requests & store futures.
-            future_login = start_request_ptc_login(
-                login_session,
+        future_niantic = start_request_ptc_login(
+            niantic_session,
+            proxy,
+            args.timeout)
+
+        if args.kinancity:
+            future_ptc = start_request_ptc(
+                ptc_session,
                 proxy,
                 args.timeout)
+        else:
+            future_ptc = None
 
-            future_niantic = start_request_ptc_login(
-                niantic_session,
-                proxy,
-                args.timeout)
+        items = (proxy, future_login, future_niantic, future_ptc)
+        proxy_queue.append(items)
 
-            if args.kinancity:
-                future_ptc = start_request_ptc(
-                    ptc_session,
-                    proxy,
-                    args.timeout)
+    # Wait here until all items in proxy_queue are processed.
+    # We intentionally start all requests before handling them so they can
+    # asynchronously continue in the background, even as we're blocking to
+    # wait for one. The double loop is intentional.
+    for proxy, future_login, future_niantic, future_ptc in proxy_queue:
+        error, result = get_proxy_test_status(proxy,
+                                              future_login,
+                                              future_niantic,
+                                              future_ptc)
+        check_results[result] += 1
+
+        if error:
+            # Decrease output amount if there are a lot of proxies.
+            if show_warnings:
+                log.warning(error)
             else:
-                future_ptc = None
+                log.debug(error)
+        else:
+            working_proxies.append(proxy)
 
-            items = (proxy, future_login, future_niantic, future_ptc)
-            proxy_queue.append(items)
-
-        # Wait here until all items in proxy_queue are processed.
-        # We intentionally start all requests before handling them so they can
-        # asynchronously continue in the background, even as we're blocking to
-        # wait for one. The double loop is intentional.
-        for proxy, future_login, future_niantic, future_ptc in proxy_queue:
-            error, result = get_proxy_test_status(proxy,
-                                                  future_login,
-                                                  future_niantic,
-                                                  future_ptc)
-            check_results[result] += 1
-
-            if error:
-                # Decrease output amount if there are a lot of proxies.
-                if show_warnings:
-                    log.warning(error)
-                else:
-                    log.debug(error)
-            else:
-                working_proxies.append(proxy)
-
-        num_checked += i
-        del proxy_queue[:]
-        other_fails = (check_results[check_result_failed] +
-                       check_results[check_result_wrong] +
-                       check_results[check_result_exception] +
-                       check_results[check_result_empty])
-        log.info('Checked %d out of %d proxies. Working: %d, banned: %d,'
-                 + ' timeout: %d, other fails: %d.',
-                 num_checked, total_proxies, len(working_proxies),
-                 check_results[check_result_banned],
-                 check_results[check_result_timeout],
-                 other_fails)
-        export(args.output_file, working_proxies)
-
+    del proxy_queue[:]
     other_fails = (check_results[check_result_failed] +
                    check_results[check_result_wrong] +
                    check_results[check_result_exception] +
                    check_results[check_result_empty])
-    log.info('Proxy check completed. Working: %d, banned: %d,'
-             + ' timeout: %d, other fails: %d of total %d configured.',
-             len(working_proxies), check_results[check_result_banned],
+    log.info('Checked %d proxies. Working: %d, banned: %d,'
+             + ' timeout: %d, other fails: %d.',
+             total_proxies, len(working_proxies),
+             check_results[check_result_banned],
              check_results[check_result_timeout],
-             other_fails,
-             total_proxies)
+             other_fails)
 
     return working_proxies
