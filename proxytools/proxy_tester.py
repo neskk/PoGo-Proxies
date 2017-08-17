@@ -211,7 +211,7 @@ def check_proxies(args, proxies):
         args.backoff_factor,
         proxy_concurrency)
 
-    if args.kinancity:
+    if args.extra_request:
         ptc_session = get_async_requests_session(
             args.retries,
             args.backoff_factor,
@@ -238,7 +238,7 @@ def check_proxies(args, proxies):
             proxy,
             args.timeout)
 
-        if args.kinancity:
+        if args.extra_request:
             future_ptc = start_request_ptc(
                 ptc_session,
                 proxy,

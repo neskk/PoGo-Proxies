@@ -15,6 +15,10 @@ def get_args():
     source = parser.add_mutually_exclusive_group()
     source.add_argument('-f', '--proxy-file',
                         help='Filename of proxy list to verify.')
+    source.add_argument('-s', '--scrap',
+                        help='Specify which proxy type to scrap.',
+                        default='socks',
+                        choices=('http', 'socks'))
     parser.add_argument('-o', '--output-file',
                         help='Output filename for working proxies.',
                         default='working_proxies.txt')
@@ -26,6 +30,10 @@ def get_args():
                         help='Connection timeout. Default is 5 seconds.',
                         default=5,
                         type=float)
+    parser.add_argument('-er', '--extra-request',
+                        help='Make an extra request to validate PTC.',
+                        default=False,
+                        action='store_true')
     parser.add_argument('-bf', '--backoff-factor',
                         help=('Factor (in seconds) by which the delay ' +
                               'until next retry will increase.'),
@@ -33,11 +41,11 @@ def get_args():
                         type=float)
     parser.add_argument('-mc', '--max-concurrency',
                         help='Maximum concurrent proxy testing requests.',
-                        default=100,
+                        default=50,
                         type=int)
     parser.add_argument('-bs', '--batch-size',
                         help='Check proxies in batches of limited size.',
-                        default=100,
+                        default=200,
                         type=int)
     parser.add_argument('-ic', '--ignore-country',
                         help='Ignore proxies from countries in this list.',
@@ -102,3 +110,17 @@ def export_kinancity(filename, proxies):
 
         file.seek(-1, 1)
         file.write(']\n')
+
+
+def validate_ip(ip):
+    try:
+        parts = ip.split('.')
+        return len(parts) == 4 and all(0 <= int(part) < 256 for part in parts)
+    except ValueError:
+        # one of the 'parts' not convertible to integer.
+        log.warning('Bad IP: %s', ip)
+        return False
+    except (AttributeError, TypeError):
+        # `ip` isn't even a string
+        log.warning('Weird IP: %s', ip)
+        return False

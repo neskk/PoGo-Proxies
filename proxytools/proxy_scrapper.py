@@ -10,6 +10,8 @@ from requests.adapters import HTTPAdapter
 
 from bs4 import BeautifulSoup
 
+from .utils import validate_ip
+
 log = logging.getLogger('pogo-proxies')
 
 
@@ -106,6 +108,10 @@ def parse_sockslist(html, ignore_country=[]):
             continue
         ip = ip_td.get_text()
 
+        if not validate_ip(ip):
+            log.warning('Invalid IP found: %s', ip)
+            continue
+
         port_text = table_row.find('td', class_='t_port').get_text()
         try:
             # Find encoded string with proxy port.
@@ -150,7 +156,7 @@ def scrap_sockslist_net(ignore_country):
 def parse_vipsocks24(html):
     proxies = []
     soup = BeautifulSoup(html, 'html.parser')
-    soup.prettify()
+    content = soup.prettify()
 
     proxylist = soup.find('textarea', onclick='this.focus();this.select()')
     if proxylist is None:
@@ -160,9 +166,11 @@ def parse_vipsocks24(html):
     proxylist = proxylist.get_text().split('\n')
     for proxy in proxylist:
         proxy = proxy.strip()
-        if proxy:
+        if proxy and validate_ip(proxy.split(':')[0]):
             proxies.append('socks5://{}'.format(proxy))
 
+    if not proxies:
+        log.debug('Blank webpage: %s', content)
     return proxies
 
 
@@ -203,6 +211,70 @@ def scrap_vipsocks24_net():
         proxies = parse_vipsocks24(html)
         proxylist.update(proxies)
         log.info('Parsed webpage %s and got %d socks5 proxies.',
+                 url, len(proxies))
+
+    return proxylist
+
+
+def parse_proxyserverlist24(html):
+    proxies = []
+    soup = BeautifulSoup(html, 'html.parser')
+    content = soup.prettify()
+
+    container = soup.find('pre', attrs={'class': 'alt2', 'dir': 'ltr'})
+    spans = container.find_all('span')
+    if not spans or len(spans) < 3:
+        log.error('Unable to find element with proxy list.')
+        return proxies
+
+    proxylist = spans[2].get_text().split('\n')
+    for proxy in proxylist:
+        proxy = proxy.strip()
+        if proxy and validate_ip(proxy.split(':')[0]):
+            proxies.append('http://{}'.format(proxy))
+
+    if not proxies:
+        log.debug('Blank webpage: %s', content)
+    return proxies
+
+
+def parse_proxyserverlist24_links(html):
+    urls = []
+    soup = BeautifulSoup(html, 'html.parser')
+    soup.prettify()
+
+    for post_title in soup.find_all('h3', class_='post-title entry-title'):
+        url = post_title.find('a')
+        if url is None:
+            continue
+        url = url.get('href')
+        log.debug('Found potential proxy list in: %s', url)
+        urls.append(url)
+
+    return urls
+
+
+def scrap_proxyserverlist24_top():
+    url = 'http://proxyserverlist24.top/'
+    proxylist = set()
+
+    html = download_webpage(url)
+    if html is None:
+        log.error('Failed to download webpage: %s', url)
+        return proxylist
+
+    urls = parse_proxyserverlist24_links(html)
+    log.info('Parsed webpage %s and got %d links to proxylists.',
+             url, len(urls))
+
+    for url in urls:
+        html = download_webpage(url)
+        if html is None:
+            log.error('Failed to download webpage: %s', url)
+            continue
+        proxies = parse_proxyserverlist24(html)
+        proxylist.update(proxies)
+        log.info('Parsed webpage %s and got %d http proxies.',
                  url, len(proxies))
 
     return proxylist

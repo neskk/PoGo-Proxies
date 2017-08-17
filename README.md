@@ -22,22 +22,25 @@ More documentation will be added soon...
 
 ## Usage
 ```
-python start.py [-h] [-v] [-f PROXY_FILE] [-o OUTPUT_FILE] [-r RETRIES]
-                [-t TIMEOUT] [-bf BACKOFF_FACTOR] [-mc MAX_CONCURRENCY]
-                [-bs BATCH_SIZE] [-ic IGNORE_COUNTRY] [--proxychains]
-                [--kinancity]
+python start.py [-h] [-v] [-f PROXY_FILE | -s {http,socks}] [-o OUTPUT_FILE]
+                [-r RETRIES] [-t TIMEOUT] [-er] [-bf BACKOFF_FACTOR]
+                [-mc MAX_CONCURRENCY] [-bs BATCH_SIZE] [-ic IGNORE_COUNTRY]
+                [--proxychains] [--kinancity]
 
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         Run in the verbose mode.
   -f PROXY_FILE, --proxy-file PROXY_FILE
                         Filename of proxy list to verify.
+  -s {http,socks}, --scrap {http,socks}
+                        Specify which proxy type to scrap.
   -o OUTPUT_FILE, --output-file OUTPUT_FILE
                         Output filename for working proxies.
   -r RETRIES, --retries RETRIES
                         Number of attempts to check each proxy.
   -t TIMEOUT, --timeout TIMEOUT
                         Connection timeout. Default is 5 seconds.
+  -er, --extra-request  Make an extra request to validate PTC.
   -bf BACKOFF_FACTOR, --backoff-factor BACKOFF_FACTOR
                         Factor (in seconds) by which the delay until next
                         retry will increase.

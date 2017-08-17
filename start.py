@@ -5,7 +5,9 @@ import sys
 import logging
 
 from proxytools.proxy_tester import check_proxies
-from proxytools.proxy_scrapper import scrap_sockslist_net, scrap_vipsocks24_net
+from proxytools.proxy_scrapper import (scrap_sockslist_net,
+                                       scrap_vipsocks24_net,
+                                       scrap_proxyserverlist24_top)
 from proxytools import utils
 
 logging.getLogger(
@@ -28,12 +30,17 @@ def work_cycle(args):
             log.error('Proxy file was configured but no proxies were loaded.')
             sys.exit(1)
     else:
-        log.info('No proxy file supplied. Scrapping proxy list from the web.')
-
-        proxies.update(scrap_sockslist_net(args.ignore_country))
-        proxies.update(scrap_vipsocks24_net())
+        log.info('No proxy file supplied.')
+        if args.scrap == 'socks':
+            log.info('Scrapping SOCKS5 proxies...')
+            proxies.update(scrap_sockslist_net(args.ignore_country))
+            proxies.update(scrap_vipsocks24_net())
+        else:
+            log.info('Scrapping HTTP proxies...')
+            proxies.update(scrap_proxyserverlist24_top())
 
     proxies = list(proxies)
+    log.info('Found a total of %d proxies. Starting tests...', len(proxies))
     if args.batch_size > 0:
         chunks = [proxies[x:x+args.batch_size]
                   for x in xrange(0, len(proxies), args.batch_size)]
