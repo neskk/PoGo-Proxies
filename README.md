@@ -22,24 +22,26 @@ More documentation will be added soon...
 
 ## Usage
 ```
-python start.py [-h] [-v] [-f PROXY_FILE | -s {http,socks}] [-o OUTPUT_FILE]
-                [-r RETRIES] [-t TIMEOUT] [-er] [-bf BACKOFF_FACTOR]
-                [-mc MAX_CONCURRENCY] [-bs BATCH_SIZE] [-ic IGNORE_COUNTRY]
-                [--proxychains] [--kinancity]
+python start.py [-h] [-v] (-f PROXY_FILE | -s) [-m {http,socks}]
+                [-o OUTPUT_FILE] [-r RETRIES] [-t TIMEOUT] [-nt | -er]
+                [-bf BACKOFF_FACTOR] [-mc MAX_CONCURRENCY] [-bs BATCH_SIZE]
+                [-ic IGNORE_COUNTRY] [--proxychains | --kinancity | --clean]
 
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         Run in the verbose mode.
   -f PROXY_FILE, --proxy-file PROXY_FILE
                         Filename of proxy list to verify.
-  -s {http,socks}, --scrap {http,socks}
-                        Specify which proxy type to scrap.
+  -s, --scrap           Scrap webpages for proxy lists.
+  -m {http,socks}, --mode {http,socks}
+                        Specify which proxy mode to test.
   -o OUTPUT_FILE, --output-file OUTPUT_FILE
                         Output filename for working proxies.
   -r RETRIES, --retries RETRIES
                         Number of attempts to check each proxy.
   -t TIMEOUT, --timeout TIMEOUT
                         Connection timeout. Default is 5 seconds.
+  -nt, --no-test        Disable proxy testing.
   -er, --extra-request  Make an extra request to validate PTC.
   -bf BACKOFF_FACTOR, --backoff-factor BACKOFF_FACTOR
                         Factor (in seconds) by which the delay until next
@@ -52,6 +54,7 @@ optional arguments:
                         Ignore proxies from countries in this list.
   --proxychains         Output in proxychains-ng format.
   --kinancity           Output in Kinan City format.
+  --clean               Output proxy list without protocol.
 ```
 
 ## Useful developer resources

@@ -22,7 +22,7 @@ def work_cycle(args):
     proxies = set()
     if args.proxy_file:
         log.info('Loading proxies from file: %s', args.proxy_file)
-        proxylist = utils.load_proxies(args.proxy_file)
+        proxylist = utils.load_proxies(args.proxy_file, args.mode)
 
         if len(proxylist) > 0:
             proxies.update(proxylist)
@@ -31,15 +31,20 @@ def work_cycle(args):
             sys.exit(1)
     else:
         log.info('No proxy file supplied.')
-        if args.scrap == 'socks':
+        if args.mode == 'http':
+            log.info('Scrapping HTTP proxies...')
+            proxies.update(scrap_proxyserverlist24_top())
+        else:
             log.info('Scrapping SOCKS5 proxies...')
             proxies.update(scrap_sockslist_net(args.ignore_country))
             proxies.update(scrap_vipsocks24_net())
-        else:
-            log.info('Scrapping HTTP proxies...')
-            proxies.update(scrap_proxyserverlist24_top())
 
     proxies = list(proxies)
+
+    if args.no_test:
+        output(args, proxies)
+        return
+
     log.info('Found a total of %d proxies. Starting tests...', len(proxies))
     if args.batch_size > 0:
         chunks = [proxies[x:x+args.batch_size]
@@ -63,7 +68,7 @@ def output(args, proxies):
     elif args.kinancity:
         utils.export_kinancity(output_file, proxies)
     else:
-        utils.export(output_file, proxies)
+        utils.export(output_file, proxies, args.clean)
 
 
 if __name__ == '__main__':

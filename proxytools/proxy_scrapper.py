@@ -222,6 +222,10 @@ def parse_proxyserverlist24(html):
     content = soup.prettify()
 
     container = soup.find('pre', attrs={'class': 'alt2', 'dir': 'ltr'})
+    if not container:
+        log.error('Unable to find element with proxy list.')
+        return proxies
+
     spans = container.find_all('span')
     if not spans or len(spans) < 3:
         log.error('Unable to find element with proxy list.')
