@@ -15,7 +15,7 @@ from .utils import validate_ip
 log = logging.getLogger('pogo-proxies')
 
 
-def download_webpage(target_url):
+def download_webpage(target_url, proxy=None, timeout=5):
     s = requests.Session()
 
     retries = Retry(total=3,
@@ -30,7 +30,10 @@ def download_webpage(target_url):
         'Referer': 'http://google.com'
     }
 
-    r = s.get(target_url, headers=headers)
+    r = s.get(target_url,
+              proxies={'http': proxy, 'https': proxy},
+              timeout=timeout,
+              headers=headers)
 
     if r.status_code == 200:
         return r.content

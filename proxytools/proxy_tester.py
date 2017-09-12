@@ -166,7 +166,7 @@ def start_request_niantic(session, proxy, timeout):
 def start_request_ptc(session, proxy, timeout):
     proxy_test_ptc_url = 'https://club.pokemon.com/us/pokemon-trainer-club'
 
-    log.debug('Checking proxy: %s.', proxy)
+    # log.debug('Checking proxy: %s.', proxy)
 
     # Send request to pokemon.com.
     future_ptc = session.get(
@@ -185,44 +185,153 @@ def start_request_ptc(session, proxy, timeout):
     return future_ptc
 
 
+def get_local_ip(proxy_judge):
+    local_ip = None
+
+    try:
+        r = requests.get(proxy_judge)
+        test = parse_azevn(r.content)
+        local_ip = test['remote_addr']
+    except Exception as e:
+        log.error(e)
+
+    return local_ip
+
+
+def test_proxies(args, proxies):
+    total_proxies = len(proxies)
+    show_warnings = total_proxies <= 10
+
+    max_concurrency = args.max_concurrency
+
+    # If proxy testing concurrency is set to automatic, use max.
+    if args.max_concurrency == 0:
+        max_concurrency = total_proxies
+
+    log.info('Testing anonymity of %d proxies with %d concurrency.',
+             total_proxies, max_concurrency)
+
+    session = get_async_requests_session(
+        args.retries,
+        args.backoff_factor,
+        max_concurrency)
+
+    test_queue = []
+    anon_proxies = []
+
+    for proxy in proxies:
+        future = session.get(
+            args.proxy_judge,
+            proxies={'http': proxy, 'https': proxy},
+            timeout=args.timeout,
+            headers={'User-Agent': ('pokemongo/1 '
+                                    'CFNetwork/811.4.18 '
+                                    'Darwin/16.5.0'),
+                     'X-Unity-Version': '5.5.1f1',
+                     'Connection': 'close'},
+            background_callback=__proxy_check_completed)
+        test_queue.append((proxy, future))
+
+    for proxy, future in test_queue:
+        proxy_error = None
+        try:
+            response = future.result()
+            # let's check the content
+            result = parse_azevn(response.content)
+            if result['remote_addr'] == args.local_ip:
+                proxy_error = 'Non-anonymous proxy {}'.format(proxy)
+            elif result['x_unity_version'] != '5.5.1f1':
+                proxy_error = 'Bad headers with proxy {}'.format(proxy)
+            elif result['user_agent'] != ('pokemongo/1 '
+                                          'CFNetwork/811.4.18 '
+                                          'Darwin/16.5.0'):
+                proxy_error = 'Bad user-agent with proxy {}'.format(proxy)
+
+        except requests.exceptions.ConnectTimeout:
+            proxy_error = 'Connection timeout for proxy {}.'.format(proxy)
+        except requests.exceptions.ConnectionError:
+            proxy_error = 'Failed to connect to proxy {}.'.format(proxy)
+        except Exception as e:
+            proxy_error = e
+
+        if proxy_error:
+            if show_warnings:
+                log.warning(proxy_error)
+            else:
+                log.debug(proxy_error)
+        else:
+            log.debug('Good anonymous proxy: %s', proxy)
+            anon_proxies.append(proxy)
+
+    return anon_proxies
+
+
+def parse_azevn(response):
+    lines = response.split('\n')
+
+    result = {
+        'remote_addr': None,
+        'x_unity_version': None,
+        'user_agent': None
+    }
+    try:
+        for line in lines:
+            if 'REMOTE_ADDR' in line:
+                result['remote_addr'] = line.split(' = ')[1]
+            if 'X_UNITY_VERSION' in line:
+                result['x_unity_version'] = line.split(' = ')[1]
+            if 'USER_AGENT' in line:
+                result['user_agent'] = line.split(' = ')[1]
+    except Exception as e:
+        log.warning('Error parsing AZ Environment variables: %s', e)
+
+    return result
+
+
 # Check all proxies and return a working list with proxies.
 def check_proxies(args, proxies):
+
+    if not args.no_anonymous:
+        proxies = test_proxies(args, proxies)
+
     total_proxies = len(proxies)
 
     # Store counter per result type.
     check_results = [0] * (check_result_max + 1)
 
+    max_concurrency = args.max_concurrency
+
     # If proxy testing concurrency is set to automatic, use max.
-    proxy_concurrency = args.max_concurrency
-
     if args.max_concurrency == 0:
-        proxy_concurrency = total_proxies
+        max_concurrency = total_proxies
 
-    log.info('Starting proxy test for %d proxies with %d concurrency.',
-             total_proxies, proxy_concurrency)
+    log.info('Checking the connection of %d proxies with %d concurrency.',
+             total_proxies, max_concurrency)
 
     # Get persistent session per host.
-    login_session = get_async_requests_session(
-        args.retries,
-        args.backoff_factor,
-        proxy_concurrency)
-    niantic_session = get_async_requests_session(
-        args.retries,
-        args.backoff_factor,
-        proxy_concurrency)
-
     if args.extra_request:
+        max_concurrency = int(max_concurrency/3)
         ptc_session = get_async_requests_session(
             args.retries,
             args.backoff_factor,
-            proxy_concurrency)
+            max_concurrency)
+    else:
+        max_concurrency = int(max_concurrency/2)
+
+    login_session = get_async_requests_session(
+        args.retries,
+        args.backoff_factor,
+        max_concurrency)
+    niantic_session = get_async_requests_session(
+        args.retries,
+        args.backoff_factor,
+        max_concurrency)
 
     # List to hold background workers.
     proxy_queue = []
     working_proxies = []
     show_warnings = total_proxies <= 10
 
-    log.info('Checking %d proxies...', total_proxies)
     if not show_warnings:
         log.info('Enable -v to see proxy testing details.')
 
@@ -268,8 +377,9 @@ def check_proxies(args, proxies):
                 log.debug(error)
         else:
             working_proxies.append(proxy)
+            if len(working_proxies) >= args.limit:
+                break
 
-    del proxy_queue[:]
     other_fails = (check_results[check_result_failed] +
                    check_results[check_result_wrong] +
                    check_results[check_result_exception] +

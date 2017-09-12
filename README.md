@@ -9,7 +9,8 @@ Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
  * Python 2
  * Multi-threaded proxy checker
  * HTTP and SOCKS protocols
- * Output final proxy list in several formats (e.g. KinanCity proxy format)
+ * Test if proxies are anonimous
+ * Output final proxy list in several formats
 
 ## Documentation
 More documentation will be added soon...
@@ -18,14 +19,16 @@ More documentation will be added soon...
  * Python 2
  * configargparse
  * requests
+ * urllib3
  * BeautifulSoup 4
 
 ## Usage
 ```
 python start.py [-h] [-v] (-f PROXY_FILE | -s) [-m {http,socks}]
-                [-o OUTPUT_FILE] [-r RETRIES] [-t TIMEOUT] [-nt | -er]
-                [-bf BACKOFF_FACTOR] [-mc MAX_CONCURRENCY] [-bs BATCH_SIZE]
-                [-ic IGNORE_COUNTRY] [--proxychains | --kinancity | --clean]
+                [-o OUTPUT_FILE] [-r RETRIES] [-t TIMEOUT] [-pj PROXY_JUDGE]
+                [-na] [-nt | -er] [-bf BACKOFF_FACTOR] [-mc MAX_CONCURRENCY]
+                [-bs BATCH_SIZE] [-l LIMIT] [-ic IGNORE_COUNTRY]
+                [--proxychains | --kinancity | --clean]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -34,14 +37,18 @@ optional arguments:
                         Filename of proxy list to verify.
   -s, --scrap           Scrap webpages for proxy lists.
   -m {http,socks}, --mode {http,socks}
-                        Specify which proxy mode to test.
+                        Specify which proxy mode to use for testing. Default
+                        is "socks".
   -o OUTPUT_FILE, --output-file OUTPUT_FILE
                         Output filename for working proxies.
   -r RETRIES, --retries RETRIES
                         Number of attempts to check each proxy.
   -t TIMEOUT, --timeout TIMEOUT
                         Connection timeout. Default is 5 seconds.
-  -nt, --no-test        Disable proxy testing.
+  -pj PROXY_JUDGE, --proxy-judge PROXY_JUDGE
+                        URL for AZenv script used to test proxies.
+  -na, --no-anonymous   Disable anonymous proxy test.
+  -nt, --no-test        Disable PTC/Niantic proxy test.
   -er, --extra-request  Make an extra request to validate PTC.
   -bf BACKOFF_FACTOR, --backoff-factor BACKOFF_FACTOR
                         Factor (in seconds) by which the delay until next
@@ -50,6 +57,8 @@ optional arguments:
                         Maximum concurrent proxy testing requests.
   -bs BATCH_SIZE, --batch-size BATCH_SIZE
                         Check proxies in batches of limited size.
+  -l LIMIT, --limit LIMIT
+                        Stop tests when we have enough good proxies.
   -ic IGNORE_COUNTRY, --ignore-country IGNORE_COUNTRY
                         Ignore proxies from countries in this list.
   --proxychains         Output in proxychains-ng format.
@@ -59,3 +68,4 @@ optional arguments:
 
 ## Useful developer resources
  - [urllib3 - Session and HTTP Adapters](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
+ - [High-performance python async requests](https://iliauk.com/2016/03/07/high-performance-python-sessions-async-multi-tasking/)

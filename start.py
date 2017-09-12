@@ -4,7 +4,7 @@
 import sys
 import logging
 
-from proxytools.proxy_tester import check_proxies
+from proxytools.proxy_tester import check_proxies, get_local_ip
 from proxytools.proxy_scrapper import (scrap_sockslist_net,
                                        scrap_vipsocks24_net,
                                        scrap_proxyserverlist24_top)
@@ -30,7 +30,6 @@ def work_cycle(args):
             log.error('Proxy file was configured but no proxies were loaded.')
             sys.exit(1)
     else:
-        log.info('No proxy file supplied.')
         if args.mode == 'http':
             log.info('Scrapping HTTP proxies...')
             proxies.update(scrap_proxyserverlist24_top())
@@ -45,6 +44,17 @@ def work_cycle(args):
         output(args, proxies)
         return
 
+    args.local_ip = None
+    if not args.no_anonymous:
+        local_ip = get_local_ip(args.proxy_judge)
+
+        if not local_ip:
+            log.error('Failed to identify local IP address.')
+            sys.exit(1)
+
+        log.info('Local IP address: %s', local_ip)
+        args.local_ip = local_ip
+
     log.info('Found a total of %d proxies. Starting tests...', len(proxies))
     if args.batch_size > 0:
         chunks = [proxies[x:x+args.batch_size]
@@ -53,6 +63,8 @@ def work_cycle(args):
         for chunk in chunks:
             working_proxies.extend(check_proxies(args, chunk))
             output(args, working_proxies)
+            if len(working_proxies) >= args.limit:
+                break
     else:
         working_proxies = check_proxies(args, proxies)
         output(args, working_proxies)

@@ -20,7 +20,8 @@ def get_args():
                         default=False,
                         action='store_true')
     parser.add_argument('-m', '--mode',
-                        help='Specify which proxy mode to test.',
+                        help=('Specify which proxy mode to use for testing. ' +
+                              'Default is "socks".'),
                         default='socks',
                         choices=('http', 'socks'))
     parser.add_argument('-o', '--output-file',
@@ -34,9 +35,16 @@ def get_args():
                         help='Connection timeout. Default is 5 seconds.',
                         default=5,
                         type=float)
+    parser.add_argument('-pj', '--proxy-judge',
+                        help='URL for AZenv script used to test proxies.',
+                        default='http://pascal.hoez.free.fr/azenv.php')
+    parser.add_argument('-na', '--no-anonymous',
+                        help='Disable anonymous proxy test.',
+                        default=False,
+                        action='store_true')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('-nt', '--no-test',
-                      help='Disable proxy testing.',
+                      help='Disable PTC/Niantic proxy test.',
                       default=False,
                       action='store_true')
     mode.add_argument('-er', '--extra-request',
@@ -50,11 +58,15 @@ def get_args():
                         type=float)
     parser.add_argument('-mc', '--max-concurrency',
                         help='Maximum concurrent proxy testing requests.',
-                        default=50,
+                        default=100,
                         type=int)
     parser.add_argument('-bs', '--batch-size',
                         help='Check proxies in batches of limited size.',
-                        default=200,
+                        default=300,
+                        type=int)
+    parser.add_argument('-l', '--limit',
+                        help='Stop tests when we have enough good proxies.',
+                        default=100,
                         type=int)
     parser.add_argument('-ic', '--ignore-country',
                         help='Ignore proxies from countries in this list.',
@@ -75,7 +87,11 @@ def get_args():
     args = parser.parse_args()
 
     if not args.proxy_file and not args.scrap:
-        log.error('You need to supply a proxylist file or enable scrapping.')
+        log.error('You must supply a proxylist file or enable scrapping.')
+        exit(1)
+
+    if not args.proxy_judge:
+        log.error('You must specify a URL for an AZenv proxy judge.')
         exit(1)
 
     return args
@@ -92,7 +108,6 @@ def load_proxies(filename, mode):
 
     # Load proxies from the file. Override args.proxy if specified.
     with open(filename) as f:
-
         for line in f:
             stripped = line.strip()
 
