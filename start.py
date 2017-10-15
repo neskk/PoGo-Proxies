@@ -10,8 +10,8 @@ from proxytools.proxy_scrapper import (scrap_sockslist_net,
                                        scrap_proxyserverlist24_top)
 from proxytools import utils
 
-logging.getLogger(
-    'requests.packages.urllib3.connectionpool').setLevel(logging.CRITICAL)
+logging.getLogger("requests").setLevel(logging.CRITICAL)
+logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 logging.basicConfig(
     format='%(asctime)s [%(threadName)15.15s][%(levelname)8.8s] %(message)s',
     level=logging.INFO)
