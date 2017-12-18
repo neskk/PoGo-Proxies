@@ -232,11 +232,13 @@ def test_proxies(args, proxies):
             args.proxy_judge,
             proxies={'http': proxy, 'https': proxy},
             timeout=args.timeout,
-            headers={'User-Agent': ('pokemongo/1 '
-                                    'CFNetwork/811.4.18 '
-                                    'Darwin/16.5.0'),
-                     'X-Unity-Version': '5.5.1f1',
-                     'Connection': 'close'},
+            headers={
+                 'Connection': 'close',
+                 'Accept': '*/*',
+                 'User-Agent': 'pokemongo/0 CFNetwork/893.14.2 Darwin/17.3.0',
+                 'Accept-Language': 'en-us',
+                 'Accept-Encoding': 'br, gzip, deflate',
+                 'X-Unity-Version': '2017.1.2f1'},
             background_callback=__proxy_check_completed)
         test_queue.append((proxy, future))
 
@@ -248,11 +250,11 @@ def test_proxies(args, proxies):
             result = parse_azevn(response.content)
             if result['remote_addr'] == args.local_ip:
                 proxy_error = 'Non-anonymous proxy {}'.format(proxy)
-            elif result['x_unity_version'] != '5.5.1f1':
+            elif result['x_unity_version'] != '2017.1.2f1':
                 proxy_error = 'Bad headers with proxy {}'.format(proxy)
-            elif result['user_agent'] != ('pokemongo/1 '
-                                          'CFNetwork/811.4.18 '
-                                          'Darwin/16.5.0'):
+            elif result['user_agent'] != ('pokemongo/0 ' +
+                                          'CFNetwork/893.14.2 ' +
+                                          'Darwin/17.3.0'):
                 proxy_error = 'Bad user-agent with proxy {}'.format(proxy)
 
         except requests.exceptions.ConnectTimeout:
