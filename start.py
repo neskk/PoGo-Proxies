@@ -7,7 +7,8 @@ import logging
 from proxytools.proxy_tester import check_proxies, get_local_ip
 from proxytools.proxy_scrapper import (scrap_sockslist_net,
                                        scrap_vipsocks24_net,
-                                       scrap_proxyserverlist24_top)
+                                       scrap_proxyserverlist24_top,
+                                       scrap_socksproxylist24_top)
 from proxytools import utils
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -37,6 +38,7 @@ def work_cycle(args):
             log.info('Scrapping SOCKS5 proxies...')
             proxies.update(scrap_sockslist_net(args.ignore_country))
             proxies.update(scrap_vipsocks24_net())
+            proxies.update(scrap_socksproxylist24_top())
 
     proxies = list(proxies)
 

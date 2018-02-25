@@ -156,6 +156,69 @@ def scrap_sockslist_net(ignore_country):
     return proxylist
 
 
+def parse_socksproxylist24(html):
+    proxies = []
+    soup = BeautifulSoup(html, 'html.parser')
+    content = soup.prettify()
+
+    proxylist = soup.find('textarea', onclick='this.focus();this.select()')
+    if proxylist is None:
+        log.error('Unable to find textarea with proxy list.')
+        return proxies
+
+    proxylist = proxylist.get_text().split('\n')
+    for proxy in proxylist:
+        proxy = proxy.strip()
+        if proxy and validate_ip(proxy.split(':')[0]):
+            proxies.append('socks5://{}'.format(proxy))
+
+    if not proxies:
+        log.debug('Blank webpage: %s', content)
+    return proxies
+
+
+def parse_socksproxylist24_links(html):
+    urls = []
+    soup = BeautifulSoup(html, 'html.parser')
+    soup.prettify()
+
+    for post_title in soup.find_all('h3', class_='post-title entry-title'):
+        url = post_title.find('a')
+        if url is None:
+            continue
+        url = url.get('href')
+        log.debug('Found potential proxy list in: %s', url)
+        urls.append(url)
+
+    return urls
+
+
+def scrap_socksproxylist24_top():
+    url = 'http://www.socksproxylist24.top'
+    proxylist = set()
+
+    html = download_webpage(url)
+    if html is None:
+        log.error('Failed to download webpage: %s', url)
+        return proxylist
+
+    urls = parse_socksproxylist24_links(html)
+    log.info('Parsed webpage %s and got %d links to proxylists.',
+             url, len(urls))
+
+    for url in urls:
+        html = download_webpage(url)
+        if html is None:
+            log.error('Failed to download webpage: %s', url)
+            continue
+        proxies = parse_socksproxylist24(html)
+        proxylist.update(proxies)
+        log.info('Parsed webpage %s and got %d socks5 proxies.',
+                 url, len(proxies))
+
+    return proxylist
+
+
 def parse_vipsocks24(html):
     proxies = []
     soup = BeautifulSoup(html, 'html.parser')

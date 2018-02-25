@@ -278,7 +278,6 @@ def test_proxies(args, proxies):
 
 def parse_azevn(response):
     lines = response.split('\n')
-
     result = {
         'remote_addr': None,
         'x_unity_version': None,
