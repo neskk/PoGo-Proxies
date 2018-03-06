@@ -1,14 +1,16 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import requests
 import logging
+import os
 import re
+import requests
 
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 from bs4 import BeautifulSoup
+from zipfile import ZipFile, is_zipfile
 
 from .utils import validate_ip
 
@@ -39,6 +41,26 @@ def download_webpage(target_url, proxy=None, timeout=5):
         return r.content
 
     return None
+
+
+def download_file(target_url, filename):
+    try:
+        headers = {
+            'User-Agent': ('Mozilla/5.0 (Windows NT 6.1; WOW64; rv:54.0) ' +
+                           'Gecko/20100101 Firefox/54.0'),
+            'Referer': 'http://google.com'
+        }
+        r = requests.get(target_url, headers=headers)
+
+        with open(filename, 'wb') as fd:
+            for chunk in r.iter_content(chunk_size=128):
+                fd.write(chunk)
+
+    except Exception as e:
+        log.exception('Failed do download file from %s: %s.', target_url, e)
+        return False
+
+    return True
 
 
 # Sockslist.net uses javascript to obfuscate proxies port number.
@@ -227,6 +249,27 @@ def parse_vipsocks24(html):
     proxylist = soup.find('textarea', onclick='this.focus();this.select()')
     if proxylist is None:
         log.error('Unable to find textarea with proxy list.')
+        download_button = soup.find('img', alt='Download')
+        if download_button is None or download_button.parent.name != 'a':
+            log.error('Unable to find download button for proxy list.')
+        else:
+            proxylist_url = download_button.parent.get('href')
+            download_path = 'download'
+            if not os.path.exists(download_path):
+                os.makedirs(download_path)
+
+            filename = '{}/vipsocks24.zip'.format(download_path)
+            if download_file(proxylist_url, filename) and is_zipfile(filename):
+                with ZipFile(filename, 'r') as myzip:
+                    for proxyfile in myzip.namelist():
+                        if not proxyfile.endswith('.txt'):
+                            log.debug('Skipped archived file %s.', proxyfile)
+                            continue
+                        with myzip.open(proxyfile, 'rU') as proxylist:
+                            for proxy in proxylist:
+                                proxy = proxy.strip()
+                                if proxy and validate_ip(proxy.split(':')[0]):
+                                    proxies.append('socks5://{}'.format(proxy))
         return proxies
 
     proxylist = proxylist.get_text().split('\n')
