@@ -1,113 +1,169 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import argparse
+import configargparse
 import logging
+import os
+import requests
+import socket
+import struct
+import sys
 
-log = logging.getLogger('pogo-proxies')
+
+log = logging.getLogger(__name__)
 
 
 def get_args():
-    parser = argparse.ArgumentParser()
+    default_config = []
+    if '-cf' not in sys.argv and '--config' not in sys.argv:
+        default_config = [os.path.join(
+            os.path.dirname(__file__), '../config/config.ini')]
+    parser = configargparse.ArgParser(default_config_files=default_config)
+
+    parser.add_argument('-cf', '--config',
+                        is_config_file=True, help='Set configuration file.')
     parser.add_argument('-v', '--verbose',
                         help='Run in the verbose mode.',
                         action='store_true')
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument('-f', '--proxy-file',
-                        help='Filename of proxy list to verify.')
-    source.add_argument('-s', '--scrap',
-                        help='Scrap webpages for proxy lists.',
-                        default=False,
-                        action='store_true')
-    parser.add_argument('-m', '--mode',
-                        help=('Specify which proxy mode to use for testing. ' +
-                              'Default is "socks".'),
-                        default='socks',
-                        choices=('http', 'socks'))
-    parser.add_argument('-o', '--output-file',
-                        help='Output filename for working proxies.',
-                        default='working_proxies.txt')
-    parser.add_argument('-r', '--retries',
-                        help='Number of attempts to check each proxy.',
-                        default=5,
-                        type=int)
-    parser.add_argument('-t', '--timeout',
-                        help='Connection timeout. Default is 5 seconds.',
-                        default=5,
-                        type=float)
+    parser.add_argument('--log-path',
+                        help='Directory where log files are saved.',
+                        default='logs')
+    parser.add_argument('--download-path',
+                        help='Directory where download files are saved.',
+                        default='downloads')
     parser.add_argument('-pj', '--proxy-judge',
                         help='URL for AZenv script used to test proxies.',
                         default='http://pascal.hoez.free.fr/azenv.php')
-    parser.add_argument('-na', '--no-anonymous',
-                        help='Disable anonymous proxy test.',
-                        default=False,
-                        action='store_true')
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('-nt', '--no-test',
-                      help='Disable PTC/Niantic proxy test.',
-                      default=False,
-                      action='store_true')
-    mode.add_argument('-er', '--extra-request',
-                      help='Make an extra request to validate PTC.',
-                      default=False,
-                      action='store_true')
-    parser.add_argument('-bf', '--backoff-factor',
-                        help=('Factor (in seconds) by which the delay ' +
-                              'until next retry will increase.'),
-                        default=0.25,
-                        type=float)
-    parser.add_argument('-mc', '--max-concurrency',
-                        help='Maximum concurrent proxy testing requests.',
-                        default=100,
-                        type=int)
-    parser.add_argument('-bs', '--batch-size',
-                        help='Check proxies in batches of limited size.',
-                        default=300,
-                        type=int)
-    parser.add_argument('-l', '--limit',
-                        help='Stop tests when we have enough good proxies.',
-                        default=100,
-                        type=int)
-    parser.add_argument('-ic', '--ignore-country',
-                        help='Ignore proxies from countries in this list.',
-                        action='append', default=['china'])
-    output = parser.add_mutually_exclusive_group()
-    output.add_argument('--proxychains',
-                        help='Output in proxychains-ng format.',
-                        default=False,
-                        action='store_true')
-    output.add_argument('--kinancity',
-                        help='Output in Kinan City format.',
-                        default=False,
-                        action='store_true')
-    output.add_argument('--clean',
-                        help='Output proxy list without protocol.',
-                        default=False,
-                        action='store_true')
+
+    group = parser.add_argument_group('Database')
+    group.add_argument('--db-name',
+                       help='Name of the database to be used.',
+                       required=True)
+    group.add_argument('--db-user',
+                       help='Username for the database.',
+                       required=True)
+    group.add_argument('--db-pass',
+                       help='Password for the database.',
+                       required=True)
+    group.add_argument('--db-host',
+                       help='IP or hostname for the database.',
+                       default='127.0.0.1')
+    group.add_argument('--db-port',
+                       help='Port for the database.',
+                       type=int, default=3306)
+
+    group = parser.add_argument_group('Proxy Sources')
+    group.add_argument('-Pf', '--proxy-file',
+                       help='Filename of proxy list to verify.',
+                       default=None)
+    group.add_argument('-Ps', '--proxy-scrap',
+                       help='Scrap webpages for proxy lists.',
+                       default=False,
+                       action='store_true')
+    group.add_argument('-Pp', '--proxy-protocol',
+                       help=('Specify proxy protocol we are testing. ' +
+                             'Default: socks.'),
+                       default='socks',
+                       choices=('http', 'socks'))
+    group.add_argument('-Pri', '--proxy-refresh-interval',
+                       help=('Refresh proxylist from configured sources '
+                             'every X minutes. Default: 180.'),
+                       default=180,
+                       type=int)
+
+    group = parser.add_argument_group('Output')
+    group.add_argument('-Of', '--output-file',
+                       help='Output filename for working proxies.',
+                       default='working_proxies.txt')
+    group.add_argument('-Oi', '--output-interval',
+                       help=('Output working proxylist every X minutes. '
+                             'Default: 60.'),
+                       default=60,
+                       type=int)
+    group.add_argument('-Ol', '--output-limit',
+                       help=('Maximum number of proxies to output. '
+                             'Default: 100.'),
+                       default=100,
+                       type=int)
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-Onp', '--output-no-protocol',
+                       help='Proxy URL format will not include protocol.',
+                       default=False,
+                       action='store_true')
+    group.add_argument('-Ok', '--output-kinancity',
+                       help='Format proxy URL for KinanCity.',
+                       default=False,
+                       action='store_true')
+    group.add_argument('-Op', '--output-proxychains',
+                       help='Format proxy URL for ProxyChains.',
+                       default=False,
+                       action='store_true')
+
+    group = parser.add_argument_group('Proxy Tester')
+    group.add_argument('-Tr', '--tester-retries',
+                       help=('Maximum number of web request attempts. '
+                             'Default: 5.'),
+                       default=5,
+                       type=int)
+    group.add_argument('-Tbf', '--tester-backoff-factor',
+                       help=('Time factor (in seconds) by which the delay '
+                             'until next retry will increase. Default: 0.5.'),
+                       default=0.5,
+                       type=float)
+    group.add_argument('-Tt', '--tester-timeout',
+                       help='Connection timeout in seconds. Default: 5.',
+                       default=5,
+                       type=float)
+    group.add_argument('-Tmc', '--tester-max-concurrency',
+                       help=('Maximum concurrent proxy testing requests. '
+                             'Default: 100.'),
+                       default=100,
+                       type=int)
+    group.add_argument('-Tda', '--tester-disable-anonymity',
+                       help='Disable anonymity proxy test.',
+                       default=False,
+                       action='store_true')
+    group.add_argument('-Tni', '--tester-notice-interval',
+                       help=('Print proxy tester statistics every X seconds. '
+                             'Default: 60.'),
+                       default=60,
+                       type=int)
+
+    group = parser.add_argument_group('Proxy Scrapper')
+    group.add_argument('-Sr', '--scrapper-retries',
+                       help=('Maximum number of web request attempts. '
+                             'Default: 3.'),
+                       default=3,
+                       type=int)
+    group.add_argument('-Sbf', '--scrapper-backoff-factor',
+                       help=('Time factor (in seconds) by which the delay '
+                             'until next retry will increase. Default: 0.5.'),
+                       default=0.5,
+                       type=float)
+    group.add_argument('-St', '--scrapper-timeout',
+                       help='Connection timeout in seconds. Default: 5.',
+                       default=5,
+                       type=float)
+    group.add_argument('-Sp', '--scrapper-proxy',
+                       help=('Use this proxy for webpage scrapping. '
+                             'Format: <proto>://[<user>:<pass>@]<ip>:<port> '
+                             'Default: None.'),
+                       default=None)
+    group.add_argument('-Sic', '--scrapper-ignore-country',
+                       help=('Ignore proxies from countries in this list. '
+                             'Default: ["china"]'),
+                       default=['china'],
+                       action='append')
     args = parser.parse_args()
-
-    if not args.proxy_file and not args.scrap:
-        log.error('You must supply a proxylist file or enable scrapping.')
-        exit(1)
-
-    if not args.proxy_judge:
-        log.error('You must specify a URL for an AZenv proxy judge.')
-        exit(1)
 
     return args
 
 
-# Load proxies and return a list.
-def load_proxies(filename, mode):
-    proxies = []
-    protocol = ''
-    if mode == 'socks':
-        protocol = 'socks5://'
-    else:
-        protocol = 'http://'
+def load_file(filename):
+    lines = []
 
-    # Load proxies from the file. Override args.proxy if specified.
-    with open(filename) as f:
+    with open(filename, 'r') as f:
         for line in f:
             stripped = line.strip()
 
@@ -115,48 +171,54 @@ def load_proxies(filename, mode):
             if len(stripped) == 0 or line.startswith('#'):
                 continue
 
-            if '://' in stripped:
-                proxies.append(stripped)
-            else:
-                proxies.append(protocol + stripped)
+            lines.append(lines)
 
-        log.info('Loaded %d proxies.', len(proxies))
+        log.info('Read %d lines from file %s.', len(lines), filename)
 
-    return proxies
+    return lines
 
 
-def export(filename, proxies, clean=False):
+def export_file(filename, content):
     with open(filename, 'w') as file:
         file.truncate()
-        for proxy in proxies:
-            if clean:
-                proxy = proxy.split('://', 2)[1]
-
-            file.write(proxy + '\n')
-
-
-def export_proxychains(filename, proxies):
-    with open(filename, 'w') as file:
-        file.truncate()
-        for proxy in proxies:
-            # Split the protocol
-            protocol, address = proxy.split('://', 2)
-            # address = proxy.split('://')[1]
-            # Split the port
-            ip, port = address.split(':', 2)
-            # Write to file
-            file.write(protocol + ' ' + ip + ' ' + port + '\n')
+        if isinstance(content, list):
+            for line in content:
+                file.write(line + '\n')
+        else:
+            file.write(content)
 
 
-def export_kinancity(filename, proxies):
-    with open(filename, 'w') as file:
-        file.truncate()
-        file.write('[')
-        for proxy in proxies:
-            file.write(proxy + ',')
+def parse_azevn(response):
+    lines = response.split('\n')
+    result = {
+        'remote_addr': None,
+        'x_unity_version': None,
+        'user_agent': None
+    }
+    try:
+        for line in lines:
+            if 'REMOTE_ADDR' in line:
+                result['remote_addr'] = line.split(' = ')[1]
+            if 'X_UNITY_VERSION' in line:
+                result['x_unity_version'] = line.split(' = ')[1]
+            if 'USER_AGENT' in line:
+                result['user_agent'] = line.split(' = ')[1]
+    except Exception as e:
+        log.warning('Error parsing AZ Environment variables: %s', e)
 
-        file.seek(-1, 1)
-        file.write(']\n')
+    return result
+
+
+def get_local_ip(proxy_judge):
+    local_ip = None
+    try:
+        r = requests.get(proxy_judge)
+        test = parse_azevn(r.content)
+        local_ip = test['remote_addr']
+    except Exception as e:
+        log.exception('Failed to connect to proxy judge: %s', e)
+
+    return local_ip
 
 
 def validate_ip(ip):
@@ -171,3 +233,11 @@ def validate_ip(ip):
         # `ip` isn't even a string
         log.warning('Weird IP: %s', ip)
         return False
+
+
+def ip2int(addr):
+    return struct.unpack('!I', socket.inet_aton(addr))[0]
+
+
+def int2ip(addr):
+    return socket.inet_ntoa(struct.pack('!I', addr))

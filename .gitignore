@@ -1,4 +1,6 @@
-download/
+config/config.ini
+downloads/
+logs/
 proxies.txt
 working_proxies.txt
 *.pyc
