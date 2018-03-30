@@ -135,6 +135,7 @@ Proxy Scrapper:
 
  - [urllib3 - Session and HTTP Adapters](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
  - [Requests-Futures](https://github.com/ross/requests-futures)
+ - [Concurrent Futures backport](https://github.com/agronholm/pythonfutures)
  - [Peewee 2.10.2 API Documentation](http://docs.peewee-orm.com/en/2.10.2/peewee/api.html)
  - [High-performance python async requests](https://iliauk.com/2016/03/07/high-performance-python-sessions-async-multi-tasking/)
  - [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)

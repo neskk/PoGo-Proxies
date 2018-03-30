@@ -191,7 +191,7 @@ if __name__ == '__main__':
         output(args, proxylist)
 
         log.info('Waiting for proxy tester to shutdown...')
-        proxy_tester.running = False
+        proxy_tester.running.set()
         proxy_tester.tester.join()
 
     sys.exit(0)

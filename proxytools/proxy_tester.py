@@ -9,7 +9,7 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ConnectTimeout
 from timeit import default_timer
-from threading import Thread
+from threading import Thread, Event
 
 from models import ProxyStatus, Proxy
 from utils import parse_azevn
@@ -77,6 +77,7 @@ class ProxyTester():
         self.tester = Thread(name='proxy-tester', target=self.__proxy_tester)
         self.tester.daemon = True
         self.tester.start()
+        self.running = Event()
 
     # Background handler for completed proxy test requests.
     def __proxy_test_callback(self, sess, resp):
@@ -228,9 +229,8 @@ class ProxyTester():
         notice_timer = default_timer()
 
         log.info('Proxy tester started.')
-        self.running = True
         while True:
-            if not self.running:
+            if self.running.is_set():
                 log.info('Proxy tester shutting down...')
                 self.shutdown()
                 break
