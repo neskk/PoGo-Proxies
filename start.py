@@ -80,6 +80,14 @@ def check_configuration(args):
         log.error('You must specify a URL for an AZenv proxy judge.')
         sys.exit(1)
 
+    if args.tester_max_concurrency <= 0:
+        log.error('Proxy tester max concurrency must be greater than zero.')
+        sys.exit(1)
+
+    if args.tester_count <= 0:
+        log.error('Proxy tester thread count must be greater than zero.')
+        sys.exit(1)
+
     args.local_ip = None
     if not args.tester_disable_anonymity:
         local_ip = utils.get_local_ip(args.proxy_judge)
@@ -115,47 +123,33 @@ def work(tester, parser):
     refresh_timer = default_timer()
     output_timer = default_timer()
 
-    if tester.disable_anonymity:
-        proxy_test = proxy_tester.test_niantic
-    else:
-        proxy_test = proxy_tester.test_anonymity
-
-    batch_size = proxy_tester.max_concurrency
-
     while True:
-        queue_size = proxy_tester.work_queue.qsize()
-        if queue_size > batch_size * 2:
-            log.info('Proxy tester running, %d tests enqueued.', queue_size)
-            time.sleep(15)
-            continue
-
-        proxylist = Proxy.get_scan(batch_size)
-
-        for proxy in proxylist:
-            proxy_test(proxy)
-
-        log.info('Added %d proxies for testing.', len(proxylist))
-
         now = default_timer()
         if now > refresh_timer + args.proxy_refresh_interval:
-            log.info('Refreshing proxylists configured from sources.')
             refresh_timer = now
+            log.info('Refreshing proxylists configured from sources.')
             proxy_parser.load_proxylist()
+
+            # Remove failed proxies from database.
             Proxy.clean_failed()
 
         if now > output_timer + args.output_interval:
-            log.info('Outputting working proxylist.')
             output_timer = now
-            proxylist = Proxy.get_valid(args.output_limit)
-            output(args, proxylist)
+            output(args)
 
-        time.sleep(15)
+        time.sleep(60)
 
 
-def output(args, proxylist):
-    output_file = args.output_file
-    log.info('Writing %d working proxies to: %s',
-             len(proxylist), output_file)
+def output(args):
+    log.info('Outputting working proxylist.')
+    proxylist = Proxy.get_valid(
+        args.output_limit, args.tester_disable_anonymity)
+    if not proxylist:
+        log.warning('Found no valid proxies in database.')
+        return
+
+    log.info('Writing %d working proxylist to: %s',
+             len(proxylist), args.output_file)
 
     if args.output_proxychains:
         proxylist = [Proxy.url_format_proxychains(proxy)
@@ -187,11 +181,9 @@ if __name__ == '__main__':
         work(proxy_tester, proxy_parser)
     except KeyboardInterrupt:
         log.info('Shutting down...')
-        proxylist = Proxy.get_valid(args.output_limit)
-        output(args, proxylist)
+        output(args)
 
-        log.info('Waiting for proxy tester to shutdown...')
         proxy_tester.running.set()
-        proxy_tester.tester.join()
+        log.info('Waiting for proxy tester to shutdown...')
 
     sys.exit(0)

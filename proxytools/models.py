@@ -40,6 +40,7 @@ class USmallIntegerField(SmallIntegerField):
 
 db = MyRetryDB(None)
 db_schema_version = 1
+db_step = 250
 
 
 class BaseModel(Model):
@@ -158,9 +159,9 @@ class Proxy(BaseModel):
         return None
 
     @staticmethod
-    def get_valid(limit=1000, age_minutes=60, disable_anonymity=False):
-        max_age = datetime.utcnow() - timedelta(minutes=age_minutes)
+    def get_valid(limit=1000, disable_anonymity=False, age_minutes=60):
         result = []
+        max_age = datetime.utcnow() - timedelta(minutes=age_minutes)
         conditions = ((Proxy.scan_date > max_age) &
                       (Proxy.fail_count == 0) &
                       (Proxy.niantic == ProxyStatus.OK) &
@@ -187,11 +188,14 @@ class Proxy(BaseModel):
         return result
 
     @staticmethod
-    def get_scan(limit=1000, age_minutes=60):
-        min_age = datetime.utcnow() - timedelta(minutes=age_minutes)
+    def get_scan(limit=1000, exclude=[], age_minutes=60):
         result = []
+        min_age = datetime.utcnow() - timedelta(minutes=age_minutes)
         conditions = (((Proxy.scan_date < min_age) & (Proxy.fail_count < 5)) |
                       Proxy.scan_date.is_null())
+        if exclude:
+            conditions &= (Proxy.hash.not_in(exclude))
+
         try:
             query = (Proxy
                      .select()
@@ -211,25 +215,13 @@ class Proxy(BaseModel):
 
         return result
 
-    @staticmethod
-    def upsert(proxy):
-        try:
-            with db.execution_context():
-                proxy['scan_date'] = datetime.utcnow()
-                query = Proxy.insert(Proxy.db_format(proxy)).upsert()
-                query.execute()
-
-        except OperationalError as e:
-            log.exception('Failed to upsert proxy from database: %s', e)
-
     # Filter proxylist and insert only new proxies to the database.
     @staticmethod
     def insert_new(proxylist):
         log.info('Processing %d proxies into the database.', len(proxylist))
-        step = 500
         count = 0
-        for idx in range(0, len(proxylist), step):
-            batch = proxylist[idx:idx+step]
+        for idx in range(0, len(proxylist), db_step):
+            batch = proxylist[idx:idx+db_step]
             proxies = [p['hash'] for p in batch]
             try:
                 query = (Proxy
@@ -289,6 +281,18 @@ def create_tables():
             else:
                 log.debug('Skipping database table %s, it already exists.',
                           table.__name__)
+
+
+def drop_tables():
+    tables = [Proxy, Version]
+    with db.execution_context():
+        db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
+        for table in tables:
+            if table.table_exists():
+                log.info('Dropping database table: %s', table.__name__)
+                db.drop_tables([table], safe=True)
+
+        db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
 
 
 def migrate_database_schema(old_ver):

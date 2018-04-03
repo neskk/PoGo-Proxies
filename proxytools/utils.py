@@ -120,6 +120,11 @@ def get_args():
                              'Default: 100.'),
                        default=100,
                        type=int)
+    group.add_argument('-Tc', '--tester-count',
+                       help=('Proxy tester request validation thread count. '
+                             'Default: 10.'),
+                       default=10,
+                       type=int)
     group.add_argument('-Tda', '--tester-disable-anonymity',
                        help='Disable anonymity proxy test.',
                        default=False,
