@@ -116,14 +116,9 @@ def get_args():
                        default=5,
                        type=float)
     group.add_argument('-Tmc', '--tester-max-concurrency',
-                       help=('Maximum concurrent proxy testing requests. '
+                       help=('Maximum concurrent proxy testing threads. '
                              'Default: 100.'),
                        default=100,
-                       type=int)
-    group.add_argument('-Tc', '--tester-count',
-                       help=('Proxy tester request validation thread count. '
-                             'Default: 10.'),
-                       default=10,
                        type=int)
     group.add_argument('-Tda', '--tester-disable-anonymity',
                        help='Disable anonymity proxy test.',

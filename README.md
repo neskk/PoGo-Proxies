@@ -2,11 +2,6 @@
 
 Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
 
-## Credits
-
-- Proxy testing code came mostly from [RocketMap](http://github.com/RocketMap/RocketMap).
-- Inspiration and ideas from [a-moss/Proxy Scraper for Pokemon Go](https://gist.github.com/a-moss/1578eb07b2570b5d97d85b1e93e81cc8s).
-
 ## Feature Support
 
 - Multi-threaded proxy checker.
@@ -24,7 +19,6 @@ Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
 - peewee==2.8.1
 - PySocks==1.5.6
 - requests==2.18.4
-- requests-futures==0.9.7
 
 ## Create database
 
@@ -133,11 +127,10 @@ Proxy Scrapper:
 
 ## Useful developer resources
 
- - [urllib3 - Session and HTTP Adapters](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
- - [Requests-Futures](https://github.com/ross/requests-futures)
- - [Concurrent Futures backport](https://github.com/agronholm/pythonfutures)
- - [Peewee 2.10.2 API Documentation](http://docs.peewee-orm.com/en/2.10.2/peewee/api.html)
- - [High-performance python async requests](https://iliauk.com/2016/03/07/high-performance-python-sessions-async-multi-tasking/)
- - [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
- - [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
- - [ProxyChains](https://github.com/haad/proxychains)
+- [Python Requests](http://docs.python-requests.org/en/master/)
+- [urllib3](https://urllib3.readthedocs.io/en/latest/)
+- [urllib3 - set max retries](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
+- [Peewee 2.10.2 API Documentation](http://docs.peewee-orm.com/en/2.10.2/peewee/api.html)
+- [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
+- [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
+- [ProxyChains](https://github.com/haad/proxychains)

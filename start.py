@@ -84,10 +84,6 @@ def check_configuration(args):
         log.error('Proxy tester max concurrency must be greater than zero.')
         sys.exit(1)
 
-    if args.tester_count <= 0:
-        log.error('Proxy tester thread count must be greater than zero.')
-        sys.exit(1)
-
     args.local_ip = None
     if not args.tester_disable_anonymity:
         local_ip = utils.get_local_ip(args.proxy_judge)

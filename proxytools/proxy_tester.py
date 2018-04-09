@@ -2,21 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import requests
 import time
 
 from datetime import datetime
 from queue import Queue, Empty
-from requests_futures.sessions import FuturesSession
-from requests.packages.urllib3.util.retry import Retry
+
 from requests.adapters import HTTPAdapter
+from requests.packages import urllib3
 from requests.exceptions import ConnectionError, ConnectTimeout
 from timeit import default_timer
 from threading import Event, Lock, Thread
 
 from models import ProxyStatus, Proxy
 from utils import export_file, parse_azevn
-
-import requests
 
 
 log = logging.getLogger(__name__)
@@ -51,9 +50,7 @@ class ProxyTester():
     STATUS_BANLIST = [403, 409]
 
     def __init__(self, args):
-
-        self.retries = args.tester_retries
-        self.backoff_factor = args.tester_backoff_factor
+        self.debug = args.verbose
         self.timeout = args.tester_timeout
         self.max_concurrency = args.tester_max_concurrency
         self.disable_anonymity = args.tester_disable_anonymity
@@ -63,38 +60,21 @@ class ProxyTester():
         self.local_ip = args.local_ip
 
         self.running = Event()
-        self.work_queue = Queue()
+        self.test_queue = Queue()
+        self.test_hashes = []
         self.proxy_updates_lock = Lock()
         self.proxy_updates = {}
-        self.proxy_tests = []
 
         self.statistics = {
             'valid': 0,
             'fail': 0
         }
 
-        if self.disable_anonymity:
-            self.test_proxy = self.__test_niantic
-        else:
-            self.test_proxy = self.__test_anonymity
-
-        # Setup asynchronous request pool.
-        self.session = FuturesSession(max_workers=self.max_concurrency)
-
-        retries = Retry(
-            total=self.retries,
-            backoff_factor=self.backoff_factor,
+        urllib3.disable_warnings()
+        self.retries = urllib3.Retry(
+            total=args.tester_retries,
+            backoff_factor=args.tester_backoff_factor,
             status_forcelist=self.STATUS_FORCELIST)
-
-        # Mount handler on both HTTP & HTTPS.
-        self.session.mount('http://', HTTPAdapter(
-            max_retries=retries,
-            pool_connections=self.max_concurrency,
-            pool_maxsize=self.max_concurrency))
-        self.session.mount('https://', HTTPAdapter(
-            max_retries=retries,
-            pool_connections=self.max_concurrency,
-            pool_maxsize=self.max_concurrency))
 
         # Start proxy manager thread.
         manager = Thread(name='proxy-manager',
@@ -103,159 +83,126 @@ class ProxyTester():
         manager.start()
 
         # Start proxy tester request validation threads.
-        for i in range(args.tester_count):
-            tester = Thread(name='proxy-tester-{:02}'.format(i),
+        for i in range(args.tester_max_concurrency):
+            tester = Thread(name='proxy-tester-{:03}'.format(i),
                             target=self.__proxy_tester)
             tester.daemon = True
             tester.start()
 
-    # Background handler for completed proxy test requests.
-    def __proxy_test_callback(self, sess, resp):
-        if resp.status_code in self.STATUS_BANLIST:
-            resp.banned = True
-        else:
-            resp.banned = False
+    # Make HTTP request using selected proxy.
+    def __test_proxy(self, session, proxy, test_url, callback, host=False):
+        result = {
+            'status': ProxyStatus.UNKNOWN,
+            'message': None
+        }
 
-    # Create a new test request and add it to the queue.
-    def __test_proxy(self, proxy, test_url, callback, host=True):
         headers = self.CLIENT_HEADERS.copy()
         if host:
             headers['host'] = self.POKEMON_HOST
 
-        future = self.session.get(
-            test_url,
-            proxies={'http': proxy['url'], 'https': proxy['url']},
-            timeout=self.timeout,
-            headers=headers,
-            background_callback=self.__proxy_test_callback,
-            stream=True)
-
-        test_suite = {
-            'proxy': proxy,
-            'test_url': test_url,
-            'future': future,
-            'callback': callback,
-            'status': ProxyStatus.UNKNOWN,
-            'error': None
-        }
-        self.work_queue.put(test_suite)
-
-    # Check response status and update test suite status.
-    # Can return response contents if `get_content` is set to True.
-    def __check_response(self, test_suite, get_content=False):
-        content = None
-        test_suite['status'] = ProxyStatus.ERROR
+        response = None
         try:
-            response = test_suite['future'].result()
-            if response.banned:
-                test_suite['error'] = 'Proxy seems to be banned.'
-                test_suite['status'] = ProxyStatus.BANNED
-            else:
-                test_suite['status'] = ProxyStatus.OK
-                if get_content:
-                    content = response.content
+            response = session.get(
+                test_url,
+                headers=headers,
+                timeout=self.timeout,
+                verify=False)
 
-            response.close()
-            # XXX: Memory leaks.
-            del response
+            if response.status_code in self.STATUS_BANLIST:
+                result['status'] = ProxyStatus.BANNED
+                result['message'] = 'Proxy seems to be banned.'
+
         except ConnectTimeout:
-            test_suite['error'] = 'Connection timed out.'
-            test_suite['status'] = ProxyStatus.TIMEOUT
+            result['status'] = ProxyStatus.TIMEOUT
+            result['message'] = 'Connection timed out.'
         except ConnectionError:
-            test_suite['error'] = 'Failed to connect.'
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Failed to connect.'
         except Exception as e:
-            test_suite['error'] = e.message
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = e.message
 
-        # XXX: Memory leaks.
-        del test_suite['future']
-        return content
+        if response:
+            # This needs to be here for callback to update proxy status.
+            callback(proxy, result, response.content)
+            response.close()
 
-    def __check_anonymity(self, test_suite):
-        content = self.__check_response(test_suite, get_content=True)
+        if result['status'] != ProxyStatus.OK:
+            if self.debug:
+                log.error('Proxy %s failed: %s',
+                          proxy['url'], result['message'])
+            return False
+        else:
+            log.info('Proxy %s is valid: %s', proxy['url'], result['message'])
+            return True
 
-        if content:
-            result = parse_azevn(content)
-            if result['remote_addr'] == self.local_ip:
-                test_suite['error'] = 'Non-anonymous proxy.'
-                test_suite['status'] = ProxyStatus.ERROR
-
-            elif result['x_unity_version'] != self.UNITY_VERSION:
-                test_suite['error'] = 'Bad headers.'
-                test_suite['status'] = ProxyStatus.ERROR
-
-            elif result['user_agent'] != self.USER_AGENT:
-                test_suite['error'] = 'Bad user-agent.'
-                test_suite['status'] = ProxyStatus.ERROR
-
-        # del content
-        test_suite['proxy']['anonymous'] = test_suite['status']
-
-    def __check_niantic(self, test_suite):
-        content = self.__check_response(test_suite, True)
+    def __check_anonymity(self, proxy, result, content):
         if not content:
-            test_suite['error'] = 'Unable to validate Niantic response.'
-            test_suite['status'] = ProxyStatus.ERROR
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Unable to validate proxy anonymity response.'
+        else:
+            azenv = parse_azevn(content)
+            if azenv['remote_addr'] == self.local_ip:
+                result['status'] = ProxyStatus.ERROR
+                result['message'] = 'Non-anonymous proxy.'
+            elif azenv['x_unity_version'] != self.UNITY_VERSION:
+                result['status'] = ProxyStatus.ERROR
+                result['message'] = 'Bad headers.'
+                export_file('anonymity_response.txt', content)
+            elif azenv['user_agent'] != self.USER_AGENT:
+                result['status'] = ProxyStatus.ERROR
+                result['message'] = 'Bad user-agent.'
+                export_file('anonymity_response.txt', content)
+            else:
+                result['status'] = ProxyStatus.OK
+                result['message'] = 'Passed anonymity test.'
+
+        proxy['anonymous'] = result['status']
+
+    def __check_niantic(self, proxy, result, content):
+        if not content:
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Unable to validate Niantic response.'
         elif self.NIANTIC_KEYWORD not in content:
-            test_suite['error'] = 'Retrieved an invalid Niantic response.'
-            test_suite['status'] = ProxyStatus.ERROR
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Retrieved an invalid Niantic response.'
+            export_file('niantic_response.txt', content)
+        else:
+            result['status'] = ProxyStatus.OK
+            result['message'] = 'Passed Niantic test.'
 
-        # del content
-        test_suite['proxy']['niantic'] = test_suite['status']
+        proxy['niantic'] = result['status']
 
-    def __check_ptc_login(self, test_suite):
-        content = self.__check_response(test_suite, True)
+    def __check_ptc_login(self, proxy, result, content):
         if not content:
-            test_suite['error'] = 'Unable to validate PTC login response.'
-            test_suite['status'] = ProxyStatus.ERROR
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Unable to validate PTC login response.'
         elif self.PTC_LOGIN_KEYWORD not in content:
-            test_suite['error'] = 'Retrieved an invalid PTC login response.'
-            test_suite['status'] = ProxyStatus.ERROR
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Retrieved an invalid PTC login response.'
+            export_file('ptc_login_response.txt', content)
+        else:
+            result['status'] = ProxyStatus.OK
+            result['message'] = 'Passed PTC login test.'
 
-        # del content
-        test_suite['proxy']['ptc_login'] = test_suite['status']
+        proxy['ptc_login'] = result['status']
 
-    def __check_ptc_signup(self, test_suite):
-        content = self.__check_response(test_suite, True)
+    def __check_ptc_signup(self, proxy, result, content):
         if not content:
-            test_suite['error'] = 'Unable to validate PTC sign-up response.'
-            test_suite['status'] = ProxyStatus.ERROR
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Unable to validate PTC sign-up response.'
         elif self.PTC_SIGNUP_KEYWORD not in content:
-            test_suite['error'] = 'Retrieved an invalid PTC sign-up response.'
-            test_suite['status'] = ProxyStatus.ERROR
+            result['status'] = ProxyStatus.ERROR
+            result['message'] = 'Retrieved an invalid PTC sign-up response.'
+            export_file('ptc_signup_response.txt', content)
+        else:
+            result['status'] = ProxyStatus.OK
+            result['message'] = 'Passed PTC sign-up test.'
 
-        # del content
-        test_suite['proxy']['ptc_signup'] = test_suite['status']
-
-    # Used by proxy-tester thread(s)...
-    def __check_proxy_test(self):
-        test_suite = self.work_queue.get()
-
-        # Call respective test callback method.
-        test_suite['callback'](test_suite)
-
-        return test_suite
-
-    # Send request to proxy judge.
-    def __test_anonymity(self, proxy):
-        self.__test_proxy(proxy, self.proxy_judge, self.__check_anonymity,
-                          host=False)
-
-    # Send request to Niantic.
-    def __test_niantic(self, proxy):
-        self.__test_proxy(proxy, self.NIANTIC_URL, self.__check_niantic)
-
-    # Send request to PTC.
-    def __test_ptc_login(self, proxy):
-        self.__test_proxy(proxy, self.PTC_LOGIN_URL, self.__check_ptc_login)
-
-    # Send request to PTC sign-up website.
-    def __test_ptc_signup(self, proxy):
-        self.__test_proxy(proxy, self.PTC_SIGNUP_URL, self.__check_ptc_signup,
-                          host=False)
+        proxy['ptc_signup'] = result['status']
 
     def __proxy_manager(self):
         notice_timer = default_timer()
-        loop_counter = 0
         while True:
             now = default_timer()
 
@@ -265,13 +212,14 @@ class ProxyTester():
                          self.statistics['valid'], self.statistics['fail'])
                 notice_timer = now
 
-            queue_size = self.work_queue.qsize()
-            log.info('Proxy manager running: %d tests enqueued.', queue_size)
+            queue_size = self.test_queue.qsize()
+            log.info('%d proxy tests running and %d tests enqueued.',
+                     len(self.test_hashes), queue_size)
 
             try:
                 with self.proxy_updates_lock:
                     # Upsert updated proxies into database.
-                    if len(self.proxy_updates) > 0:
+                    if len(self.proxy_updates) > 10:
                         proxies = self.proxy_updates.values()
                         result = False
                         with Proxy.database().atomic():
@@ -289,23 +237,13 @@ class ProxyTester():
                     # Request more proxies to test.
                     refill = self.max_concurrency - queue_size
 
-                    loop_counter += 1
-                    if loop_counter > 20:
-                        log.info('Flushing request pool...')
-                        if queue_size > 0:
-                            refill = 0
-                        else:
-                            log.info('Request pool flushed.')
-                            loop_counter = 0
-                            time.sleep(3)
-
                     if refill > 0:
                         refill = min(refill, self.max_concurrency)
-                        proxylist = Proxy.get_scan(refill, self.proxy_tests)
+                        proxylist = Proxy.get_scan(refill, self.test_hashes)
                         count = 0
                         for proxy in proxylist:
-                            self.proxy_tests.append(proxy['hash'])
-                            self.test_proxy(proxy)
+                            self.test_queue.put(proxy)
+                            self.test_hashes.append(proxy['hash'])
                             count += 1
 
                         log.info('Added %d proxies for testing.', count)
@@ -331,8 +269,44 @@ class ProxyTester():
 
         proxy = Proxy.db_format(proxy)
         with self.proxy_updates_lock:
-            self.proxy_tests.remove(proxy['hash'])
+            self.test_hashes.remove(proxy['hash'])
             self.proxy_updates[proxy['hash']] = proxy
+
+    def __run_tests(self, proxy):
+        result = True
+
+        session = requests.Session()
+
+        session.mount('http://', HTTPAdapter(max_retries=self.retries))
+        session.mount('https://', HTTPAdapter(max_retries=self.retries))
+
+        session.proxies = {'http': proxy['url'], 'https': proxy['url']}
+
+        # Send request to proxy judge.
+        if not self.disable_anonymity:
+            result = self.__test_proxy(
+                session, proxy, self.proxy_judge, self.__check_anonymity)
+
+        # Send request to Niantic.
+        if result:
+            result = self.__test_proxy(
+                session, proxy, self.NIANTIC_URL, self.__check_niantic,
+                host=True)
+
+        # Send request to PTC.
+        if result:
+            result = self.__test_proxy(
+                session, proxy, self.PTC_LOGIN_URL, self.__check_ptc_login,
+                host=True)
+
+        # Send request to PTC sign-up website.
+        if result:
+            result = self.__test_proxy(
+                session, proxy, self.PTC_SIGNUP_URL, self.__check_ptc_signup)
+
+        self.__update_proxy(proxy, valid=result)
+        session.close()
+        return result
 
     def __proxy_tester(self):
         log.info('Proxy tester started.')
@@ -342,42 +316,25 @@ class ProxyTester():
                 log.debug('Proxy tester shutdown.')
                 break
 
-            test_suite = self.__check_proxy_test()
+            proxy = self.test_queue.get()
 
-            proxy = test_suite['proxy']
-            error = test_suite['error']
-            # XXX: Memory leaks.
-            del test_suite
-            fail = False
-            if (not self.disable_anonymity and
-                    proxy['anonymous'] != ProxyStatus.OK):
-                fail = True
-            elif proxy['niantic'] == ProxyStatus.UNKNOWN:
-                self.__test_niantic(proxy)
-            elif proxy['niantic'] != ProxyStatus.OK:
-                fail = True
-            elif proxy['ptc_login'] == ProxyStatus.UNKNOWN:
-                self.__test_ptc_login(proxy)
-            elif proxy['ptc_login'] != ProxyStatus.OK:
-                fail = True
-            elif proxy['ptc_signup'] == ProxyStatus.UNKNOWN:
-                self.__test_ptc_signup(proxy)
-            elif proxy['ptc_signup'] != ProxyStatus.OK:
-                fail = True
-            else:
-                log.debug('Proxy %s passed all tests.', proxy['url'])
-                self.__update_proxy(proxy, valid=True)
-
-            if fail:
-                log.debug('Proxy %s failed test: %s', proxy['url'], error)
-                self.__update_proxy(proxy)
+            # Reset proxy statuses.
+            proxy.update({
+                'anonymous': ProxyStatus.UNKNOWN,
+                'niantic': ProxyStatus.UNKNOWN,
+                'ptc-login': ProxyStatus.UNKNOWN,
+                'ptc-signup': ProxyStatus.UNKNOWN
+            })
+            start = default_timer()
+            self.__run_tests(proxy)
+            log.debug('Took %.3f seconds to test proxy: %s',
+                      default_timer() - start, proxy['url'])
 
     def __shutdown(self):
         count = 0
         while True:
             try:
-                test_suite = self.work_queue.get_nowait()
-                test_suite['future'].cancel()
+                self.test_queue.get_nowait()
                 count += 1
             except Empty:
                 break
