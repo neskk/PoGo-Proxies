@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import configargparse
+import json
 import logging
 import os
 import requests
@@ -216,6 +217,20 @@ def parse_azevn(response):
         log.warning('Error parsing AZ Environment variables: %s', e)
 
     return result
+
+
+def freegeoip_lookup(ip):
+    country = None
+    try:
+        url = 'http://www.freegeoip.net/json/{}'.format(ip)
+        response = requests.get(url)
+        location = json.loads(response.content)
+        country = location['country_name'].lower()
+
+    except Exception as e:
+        log.exception('Failed to lookup %s country: %s', ip, e)
+
+    return country
 
 
 def get_local_ip(proxy_judge):

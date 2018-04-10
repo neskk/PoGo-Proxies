@@ -15,7 +15,7 @@ from timeit import default_timer
 from threading import Event, Lock, Thread
 
 from models import ProxyStatus, Proxy
-from utils import export_file, parse_azevn
+from utils import export_file, freegeoip_lookup, parse_azevn
 
 
 log = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ class ProxyTester():
 
     def __init__(self, args):
         self.debug = args.verbose
+        self.download_path = args.download_path
         self.timeout = args.tester_timeout
         self.max_concurrency = args.tester_max_concurrency
         self.disable_anonymity = args.tester_disable_anonymity
@@ -139,11 +140,13 @@ class ProxyTester():
         elif azenv['x_unity_version'] != self.UNITY_VERSION:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Bad headers.'
-            export_file('anonymity_response.txt', content)
+            filename = '{}/response_anonymity.txt'.format(self.download_path)
+            export_file(filename, content)
         elif azenv['user_agent'] != self.USER_AGENT:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Bad user-agent.'
-            export_file('anonymity_response.txt', content)
+            filename = '{}/response_anonymity.txt'.format(self.download_path)
+            export_file(filename, content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -152,7 +155,8 @@ class ProxyTester():
         if self.NIANTIC_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            export_file('niantic_response.txt', content)
+            filename = '{}/response_niantic.txt'.format(self.download_path)
+            export_file(filename, content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -161,7 +165,8 @@ class ProxyTester():
         if self.PTC_LOGIN_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            export_file('ptc_login_response.txt', content)
+            filename = '{}/response_ptc_login.txt'.format(self.download_path)
+            export_file(filename, content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -170,7 +175,8 @@ class ProxyTester():
         if self.PTC_SIGNUP_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            export_file('ptc_signup_response.txt', content)
+            filename = '{}/response_ptc_signup.txt'.format(self.download_path)
+            export_file(filename, content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -183,18 +189,9 @@ class ProxyTester():
             self.__parse_anonymity)
 
         proxy['anonymous'] = result['status']
-        message = '{} anonymous test: {}'.format(
-            proxy['url'], result['message'])
+        log.debug('%s anonymous test: %s', proxy['url'], result['message'])
 
-        valid = (result['status'] == ProxyStatus.OK)
-
-        if self.debug:
-            if valid:
-                log.info(message)
-            else:
-                log.error(message)
-
-        return valid
+        return result['status'] == ProxyStatus.OK
 
     def __test_niantic(self, proxy, session):
         result = self.__test_proxy(
@@ -204,18 +201,9 @@ class ProxyTester():
             self.__parse_niantic)
 
         proxy['niantic'] = result['status']
-        message = '{} Niantic test: {}'.format(
-            proxy['url'], result['message'])
+        log.debug('%s Niantic test: %s', proxy['url'], result['message'])
 
-        valid = (result['status'] == ProxyStatus.OK)
-
-        if self.debug:
-            if valid:
-                log.info(message)
-            else:
-                log.error(message)
-
-        return valid
+        return result['status'] == ProxyStatus.OK
 
     def __test_ptc_login(self, proxy, session):
         result = self.__test_proxy(
@@ -225,18 +213,9 @@ class ProxyTester():
             self.__parse_ptc_login)
 
         proxy['ptc_login'] = result['status']
-        message = '{} PTC log-in test: {}'.format(
-            proxy['url'], result['message'])
+        log.debug('%s PTC log-in test: %s', proxy['url'], result['message'])
 
-        valid = (result['status'] == ProxyStatus.OK)
-
-        if self.debug:
-            if valid:
-                log.info(message)
-            else:
-                log.error(message)
-
-        return valid
+        return result['status'] == ProxyStatus.OK
 
     def __test_ptc_signup(self, proxy, session):
         result = self.__test_proxy(
@@ -246,18 +225,9 @@ class ProxyTester():
             self.__parse_ptc_signup)
 
         proxy['ptc_signup'] = result['status']
-        message = '{} PTC sign-up test: {}'.format(
-            proxy['url'], result['message'])
+        log.debug('%s PTC sign-up test: %s', proxy['url'], result['message'])
 
-        valid = (result['status'] == ProxyStatus.OK)
-
-        if self.debug:
-            if valid:
-                log.info(message)
-            else:
-                log.error(message)
-
-        return valid
+        return result['status'] == ProxyStatus.OK
 
     def __update_proxy(self, proxy, valid=False):
         proxy['scan_date'] = datetime.utcnow()
@@ -295,6 +265,11 @@ class ProxyTester():
         # Send request to PTC sign-up.
         if result:
             result = self.__test_ptc_signup(proxy, session)
+
+        if result:
+            log.info('%s passed all tests!', proxy['url'])
+            country = freegeoip_lookup(proxy['ip'])
+            log.info('%s country: %s', proxy['url'], country)
 
         self.__update_proxy(proxy, valid=result)
         session.close()
