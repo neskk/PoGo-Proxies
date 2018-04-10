@@ -251,7 +251,7 @@ class Proxy(BaseModel):
             except OperationalError as e:
                 log.exception('Failed to insert new proxies: %s', e)
 
-        log.info('Inserted %d new accounts into the database.', count)
+        log.info('Inserted %d new proxies into the database.', count)
 
     @staticmethod
     def clean_failed():

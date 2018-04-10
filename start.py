@@ -227,10 +227,11 @@ if __name__ == '__main__':
     if args.proxy_file:
         proxy_parsers.append(FileParser(args))
 
-    if not args.proxy_protocol or args.proxy_protocol == 'http':
+    protocol = args.proxy_protocol
+    if not protocol or protocol == ProxyProtocol.HTTP:
         proxy_parsers.append(HTTPParser(args))
 
-    if not args.proxy_protocol or args.proxy_protocol == 'socks':
+    if not protocol or protocol == ProxyProtocol.SOCKS5:
         proxy_parsers.append(SocksParser(args))
 
     try:
