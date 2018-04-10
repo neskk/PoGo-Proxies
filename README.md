@@ -34,8 +34,9 @@ usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH]
                 [--download-path DOWNLOAD_PATH] [-pj PROXY_JUDGE] --db-name
                 DB_NAME --db-user DB_USER --db-pass DB_PASS
                 [--db-host DB_HOST] [--db-port DB_PORT] [-Pf PROXY_FILE] [-Ps]
-                [-Pp {http,socks}] [-Pri PROXY_REFRESH_INTERVAL]
-                [-Of OUTPUT_FILE] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT]
+                [-Pp {http,socks,all}] [-Pri PROXY_REFRESH_INTERVAL]
+                [-Psi PROXY_SCAN_INTERVAL] [-Of OUTPUT_FILE]
+                [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Os]
                 [-Onp | -Ok | -Op] [-Tr TESTER_RETRIES]
                 [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT]
                 [-Tmc TESTER_MAX_CONCURRENCY] [-Tda]
@@ -78,11 +79,14 @@ Proxy Sources:
   -Pf PROXY_FILE, --proxy-file PROXY_FILE
                         Filename of proxy list to verify.
   -Ps, --proxy-scrap    Scrap webpages for proxy lists.
-  -Pp {http,socks}, --proxy-protocol {http,socks}
+  -Pp {http,socks,all}, --proxy-protocol {http,socks,all}
                         Specify proxy protocol we are testing. Default: socks.
   -Pri PROXY_REFRESH_INTERVAL, --proxy-refresh-interval PROXY_REFRESH_INTERVAL
                         Refresh proxylist from configured sources every X
                         minutes. Default: 180.
+  -Psi PROXY_SCAN_INTERVAL, --proxy-scan-interval PROXY_SCAN_INTERVAL
+                        Scan proxies from database every X minutes.
+                        Default: 60.
 
 Output:
   -Of OUTPUT_FILE, --output-file OUTPUT_FILE
@@ -91,6 +95,8 @@ Output:
                         Output working proxylist every X minutes. Default: 60.
   -Ol OUTPUT_LIMIT, --output-limit OUTPUT_LIMIT
                         Maximum number of proxies to output. Default: 100.
+  -Os, --output-separate
+                        Separate proxylist for each protocol.
 
 Proxy Tester:
   -Tr TESTER_RETRIES, --tester-retries TESTER_RETRIES
@@ -101,8 +107,8 @@ Proxy Tester:
   -Tt TESTER_TIMEOUT, --tester-timeout TESTER_TIMEOUT
                         Connection timeout in seconds. Default: 5.
   -Tmc TESTER_MAX_CONCURRENCY, --tester-max-concurrency TESTER_MAX_CONCURRENCY
-                        Maximum concurrent proxy testing requests. Default:
-                        100.
+                        Maximum concurrent proxy testing threads.
+                        Default: 100.
   -Tda, --tester-disable-anonymity
                         Disable anonymity proxy test.
   -Tni TESTER_NOTICE_INTERVAL, --tester-notice-interval TESTER_NOTICE_INTERVAL

@@ -15,26 +15,16 @@ from scrappers.vipsocks24 import Vipsocks24
 log = logging.getLogger(__name__)
 
 
-class ProxyParser():
+class ProxyParser(object):
 
-    def __init__(self, args):
+    def __init__(self, args, protocol=None):
         self.debug = args.verbose
         self.download_path = args.download_path
         self.refresh_interval = args.proxy_refresh_interval
+        self.protocol = protocol
 
         # Configure proxy scrappers.
         self.scrappers = []
-        if args.proxy_file:
-            self.scrappers.append(FileReader(args))
-
-        if args.proxy_protocol == 'socks':
-            self.protocol = ProxyProtocol.SOCKS5
-            self.scrappers.append(Sockslist(args))
-            self.scrappers.append(Socksproxylist24(args))
-            self.scrappers.append(Vipsocks24(args))
-        else:
-            self.protocol = ProxyProtocol.HTTP
-            self.scrappers.append(Proxyserverlist24(args))
 
     def __parse_proxylist(self, proxylist):
         result = {}
@@ -68,6 +58,10 @@ class ProxyParser():
                 else:
                     log.error('Unknown proxy protocol in: %s', proxy)
                     continue
+
+            if parsed['protocol'] is None:
+                log.error('Proxy protocol is not set for: %s', proxy)
+                continue
 
             # Check and separate authentication from proxy address.
             if '@' in proxy:
@@ -110,3 +104,30 @@ class ProxyParser():
         log.info('Scrapped a total of %d proxies.', len(proxylist))
         proxylist = self.__parse_proxylist(proxylist).values()
         Proxy.insert_new(proxylist)
+
+
+class SocksParser(ProxyParser):
+
+    def __init__(self, args):
+        super(SocksParser, self).__init__(args, ProxyProtocol.SOCKS5)
+
+        self.scrappers.append(Sockslist(args))
+        self.scrappers.append(Socksproxylist24(args))
+        self.scrappers.append(Vipsocks24(args))
+        log.info('SOCKS proxylist scrapper initialized.')
+
+
+class HTTPParser(ProxyParser):
+
+    def __init__(self, args):
+        super(HTTPParser, self).__init__(args, ProxyProtocol.HTTP)
+        self.scrappers.append(Proxyserverlist24(args))
+        log.info('HTTP proxylist scrapper initialized.')
+
+
+class FileParser(ProxyParser):
+
+    def __init__(self, args):
+        super(FileParser, self).__init__(args)
+        self.scrappers.append(FileReader(args))
+        log.info('Proxylist file parser initialized.')

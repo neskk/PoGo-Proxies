@@ -159,16 +159,19 @@ class Proxy(BaseModel):
         return None
 
     @staticmethod
-    def get_valid(limit=1000, disable_anonymity=False, age_minutes=60):
+    def get_valid(limit=1000, anonymous=True, age_secs=3600, protocol=None):
         result = []
-        max_age = datetime.utcnow() - timedelta(minutes=age_minutes)
+        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
         conditions = ((Proxy.scan_date > max_age) &
                       (Proxy.fail_count == 0) &
                       (Proxy.niantic == ProxyStatus.OK) &
                       (Proxy.ptc_login == ProxyStatus.OK) &
                       (Proxy.ptc_signup == ProxyStatus.OK))
-        if not disable_anonymity:
+        if anonymous:
             conditions &= (Proxy.anonymous == ProxyStatus.OK)
+
+        if protocol is not None:
+            conditions &= (Proxy.protocol == protocol)
 
         try:
             query = (Proxy
@@ -188,13 +191,16 @@ class Proxy(BaseModel):
         return result
 
     @staticmethod
-    def get_scan(limit=1000, exclude=[], age_minutes=60):
+    def get_scan(limit=1000, exclude=[], age_secs=3600, protocol=None):
         result = []
-        min_age = datetime.utcnow() - timedelta(minutes=age_minutes)
+        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
         conditions = (((Proxy.scan_date < min_age) & (Proxy.fail_count < 5)) |
                       Proxy.scan_date.is_null())
         if exclude:
             conditions &= (Proxy.hash.not_in(exclude))
+
+        if protocol is not None:
+            conditions &= (Proxy.protocol == protocol)
 
         try:
             query = (Proxy

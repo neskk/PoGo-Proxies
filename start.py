@@ -10,8 +10,8 @@ from timeit import default_timer
 
 from proxytools import utils
 from proxytools.proxy_tester import ProxyTester
-from proxytools.proxy_parser import ProxyParser
-from proxytools.models import init_database, Proxy
+from proxytools.proxy_parser import FileParser, HTTPParser, SocksParser
+from proxytools.models import init_database, Proxy, ProxyProtocol
 
 log = logging.getLogger()
 
@@ -76,6 +76,13 @@ def check_configuration(args):
         log.error('You must supply a proxylist file or enable scrapping.')
         sys.exit(1)
 
+    if args.proxy_protocol == 'all':
+        args.proxy_protocol = None
+    elif args.proxy_protocol == 'http':
+        args.proxy_protocol = ProxyProtocol.HTTP
+    else:
+        args.proxy_protocol = ProxyProtocol.SOCKS5
+
     if not args.proxy_judge:
         log.error('You must specify a URL for an AZenv proxy judge.')
         sys.exit(1)
@@ -103,6 +110,14 @@ def check_configuration(args):
 
     args.proxy_refresh_interval *= 60
 
+    if args.proxy_scan_interval < 5:
+        log.warning('Scanning proxies every %d minutes is inefficient.',
+                    args.proxy_scan_interval)
+        args.proxy_scan_interval = 5
+        log.warning('Proxy scan interval overriden to 5 minutes.')
+
+    args.proxy_scan_interval *= 60
+
     if args.output_interval < 15:
         log.warning('Outputting proxylist every %d minutes is inefficient.',
                     args.output_interval)
@@ -112,9 +127,13 @@ def check_configuration(args):
     args.output_interval *= 60
 
 
-def work(tester, parser):
+def work(tester, parsers):
     # Fetch and insert new proxies from configured sources.
-    proxy_parser.load_proxylist()
+    for proxy_parser in parsers:
+        proxy_parser.load_proxylist()
+
+    # Remove failed proxies from database.
+    Proxy.clean_failed()
 
     refresh_timer = default_timer()
     output_timer = default_timer()
@@ -124,7 +143,8 @@ def work(tester, parser):
         if now > refresh_timer + args.proxy_refresh_interval:
             refresh_timer = now
             log.info('Refreshing proxylists configured from sources.')
-            proxy_parser.load_proxylist()
+            for proxy_parser in parsers:
+                proxy_parser.load_proxylist()
 
             # Remove failed proxies from database.
             Proxy.clean_failed()
@@ -138,14 +158,45 @@ def work(tester, parser):
 
 def output(args):
     log.info('Outputting working proxylist.')
-    proxylist = Proxy.get_valid(
-        args.output_limit, args.tester_disable_anonymity)
+
+    if not args.output_separate:
+        proxylist = Proxy.get_valid(
+            args.output_limit,
+            args.tester_disable_anonymity,
+            args.proxy_scan_interval,
+            args.proxy_protocol)
+
+        export(args, proxylist)
+    else:
+        proxylist = Proxy.get_valid(
+            args.output_limit,
+            args.tester_disable_anonymity,
+            args.proxy_scan_interval,
+            ProxyProtocol.SOCKS5)
+
+        export(args, proxylist, 'socks')
+
+        proxylist = Proxy.get_valid(
+            args.output_limit,
+            args.tester_disable_anonymity,
+            args.proxy_scan_interval,
+            ProxyProtocol.HTTP)
+
+        export(args, proxylist, 'http')
+
+
+def export(args, proxylist, suffix=None):
     if not proxylist:
         log.warning('Found no valid proxies in database.')
         return
 
-    log.info('Writing %d working proxylist to: %s',
-             len(proxylist), args.output_file)
+    if suffix:
+        filename = '{}_{}'.format(args.output_file, suffix)
+    else:
+        filename = args.output_file
+
+    log.info('Writing %d working proxies to: %s',
+             len(proxylist), filename)
 
     if args.output_proxychains:
         proxylist = [Proxy.url_format_proxychains(proxy)
@@ -157,7 +208,7 @@ def output(args):
     if args.output_kinancity:
         proxylist = '[' + ','.join(proxylist) + ']'
 
-    utils.export_file(args.output_file, proxylist)
+    utils.export_file(filename, proxylist)
 
 
 if __name__ == '__main__':
@@ -171,10 +222,19 @@ if __name__ == '__main__':
         args.db_name, args.db_host, args.db_port, args.db_user, args.db_pass)
 
     proxy_tester = ProxyTester(args)
-    proxy_parser = ProxyParser(args)
+    proxy_parsers = []
+
+    if args.proxy_file:
+        proxy_parsers.append(FileParser(args))
+
+    if not args.proxy_protocol or args.proxy_protocol == 'http':
+        proxy_parsers.append(HTTPParser(args))
+
+    if not args.proxy_protocol or args.proxy_protocol == 'socks':
+        proxy_parsers.append(SocksParser(args))
 
     try:
-        work(proxy_tester, proxy_parser)
+        work(proxy_tester, proxy_parsers)
     except KeyboardInterrupt:
         log.info('Shutting down...')
         output(args)

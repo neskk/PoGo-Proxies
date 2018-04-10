@@ -64,11 +64,16 @@ def get_args():
                        help=('Specify proxy protocol we are testing. ' +
                              'Default: socks.'),
                        default='socks',
-                       choices=('http', 'socks'))
+                       choices=('http', 'socks', 'all'))
     group.add_argument('-Pri', '--proxy-refresh-interval',
                        help=('Refresh proxylist from configured sources '
                              'every X minutes. Default: 180.'),
                        default=180,
+                       type=int)
+    group.add_argument('-Psi', '--proxy-scan-interval',
+                       help=('Scan proxies from database every X minutes. '
+                             'Default: 60.'),
+                       default=60,
                        type=int)
 
     group = parser.add_argument_group('Output')
@@ -85,6 +90,10 @@ def get_args():
                              'Default: 100.'),
                        default=100,
                        type=int)
+    group.add_argument('-Os', '--output-separate',
+                       help='Separate proxylist for each protocol.',
+                       default=False,
+                       action='store_true')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-Onp', '--output-no-protocol',
