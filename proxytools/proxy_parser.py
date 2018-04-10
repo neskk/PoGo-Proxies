@@ -7,6 +7,7 @@ from utils import validate_ip
 from models import ProxyProtocol, Proxy
 
 from scrappers.filereader import FileReader
+from scrappers.premproxy import Premproxy
 from scrappers.proxyserverlist24 import Proxyserverlist24
 from scrappers.sockslist import Sockslist
 from scrappers.socksproxylist24 import Socksproxylist24
@@ -122,6 +123,7 @@ class HTTPParser(ProxyParser):
     def __init__(self, args):
         super(HTTPParser, self).__init__(args, ProxyProtocol.HTTP)
         self.scrappers.append(Proxyserverlist24(args))
+        self.scrappers.append(Premproxy(args))
         log.info('HTTP proxylist scrapper initialized.')
 
 
