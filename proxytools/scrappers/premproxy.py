@@ -8,7 +8,6 @@ import jsbeautifier.unpackers.packer as packer
 from bs4 import BeautifulSoup
 
 from ..proxy_scrapper import ProxyScrapper
-from ..utils import validate_ip
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +24,6 @@ class Premproxy(ProxyScrapper):
     def scrap(self):
         proxylist = []
         urls = self.extract_pages()
-        print urls
         for url in urls:
             html = self.request_url(url)
             if html is None:
@@ -38,26 +36,35 @@ class Premproxy(ProxyScrapper):
         return proxylist
 
     def parse_webpage(self, html):
+        ports = {}
         proxylist = []
         soup = BeautifulSoup(html, 'html.parser')
         # soup.prettify()
 
-        # For now, we'll assume <script> #2 in the list is the one with ports.
+        # Go through the scripts and check to see if they contain ports.
         scripts = soup.findAll('script')
-        js_url = self.base_url + scripts[1].get('src')
-        ports = self.extract_ports(js_url)
+        for script in scripts:
+            src = script.get('src')
+            if src is not None:
+                extracted = self.extract_ports(src)
+                # Once ports are returned, we don't need to check further.
+                if extracted is not None and len(extracted) > 0:
+                    ports = extracted
+                    break
+
+        # Ensure we have some ports to work with, if not, give up.
         if (len(ports) == 0):
             return proxylist
 
         # Verify that a row contains ip/port and country.
-        container = soup.find('tr', ["anon", "transp"])
+        container = soup.find('tr', ["anon"])
         if not container:
-            log.error('Unable to find element with proxy list.')
+            log.error('Unable to find anonymous proxies in list.')
             return proxylist
 
-        # Go through each row and pull out the informaton wanted.
+        # Go through each row and pull out the information wanted.
         ips = []
-        for row in soup.findAll('tr', ["anon", "transp"]):
+        for row in soup.findAll('tr', ["anon"]):
 
             # Extract and check against ignored countries.
             country_td = row.find('td', attrs={'data-label': 'Country: '})
@@ -69,7 +76,6 @@ class Premproxy(ProxyScrapper):
             # The ip/port list is provided via the checkbox, so grab it.
             input = row.find('input')
             if input['type'] in ('checkbox'):
-                value = ''
                 if input.has_attr('value'):
                     value = input['value']
                     if value is not None:
@@ -82,10 +88,10 @@ class Premproxy(ProxyScrapper):
 
         for ip in ips:
             ip = ip.strip()
-            if ip and validate_ip(ip.split(':')[0]):
+            if ip:
                 proxylist.append('http://{}'.format(ip))
 
-        log.info('Parsed %d socks5 proxies from webpage.', len(proxylist))
+        log.info('Parsed %d http proxies from webpage.', len(proxylist))
         return proxylist
 
     # Premproxy does not have a consistent number of additional pages.
@@ -129,36 +135,30 @@ class Premproxy(ProxyScrapper):
     # Dictionary = {'var': intValue, ...})
     def extract_ports(self, js_url):
 
-        dictionary = {}
-
         # Download the JS file.
-        html = self.request_url(js_url)
+        html = self.request_url(self.base_url + js_url)
         if html is None:
             log.error('Failed to download webpage: %s', js_url)
-            return dict
+            return None
 
+        # Check to see if this script contains the packed details needed.
+        if not re.match('^eval\(function\(p,a,c,k,e,d\)', html):
+            return None
+
+        # Check to see if this script contains packing info.
+        # If not, then we don't use it.
+        dictionary = {}
         try:
             # For now, try and extract out the css/port pairs from the JS.
-            # This likely is a really back way of doing it, I'll revisit later.
             unpack = packer.unpack(html)
-            unpack = unpack.replace("$(document).ready(function(){", "")
-            unpack = unpack.replace("});", "")
-            unpack = unpack.replace("\\", "")
-            unpack = unpack.replace("'", "")
-            unpack = unpack.replace(".", "")
-
-            # Pull out everything that is within a bracket.
-            parts = re.findall('\((.*?)\)', unpack)
+            parts = re.findall(
+                '\(\\\\\'\.([\w\d]+)\\\\\'\).html\((\d+)\)', unpack)
 
             # Now convert the list into a dictionary.
-            # Every other entry in the list is a pair css/port.
-            i = 0
-            while i < len(parts):
-                dictionary[parts[i]] = parts[i+1]
-                i += 2
-
-            return dictionary
+            for info in parts:
+                dictionary[info[0]] = info[1]
 
         except Exception as e:
             log.exception('Failed do extract ports from %s: %s.', js_url, e)
-            return dictionary
+
+        return dictionary
