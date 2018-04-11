@@ -2,19 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import random
 import re
-import jsbeautifier.unpackers.packer as packer
+import time
 
 from bs4 import BeautifulSoup
 
+from ..packer import unpack
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
 
 
-# This site has a "bot" network checker and may result in the
-# pages not being loaded. This should only happen if you request
-# scans too frequently.
+# PremProxy.com has anti-scrapping measures and pages might not be loaded.
+# This should only happen if you scrap this site too frequently.
 class Premproxy(ProxyScrapper):
 
     def __init__(self, args):
@@ -23,142 +24,141 @@ class Premproxy(ProxyScrapper):
 
     def scrap(self):
         proxylist = []
-        urls = self.extract_pages()
-        for url in urls:
-            html = self.request_url(url)
-            if html is None:
-                log.error('Failed to download webpage: %s', url)
-                continue
 
-            log.info('Parsing webpage from: %s', url)
-            proxylist.extend(self.parse_webpage(html))
+        url = self.base_url + '/list/'
+        html = self.request_url(url)
+        if html is None:
+            log.error('Failed to download webpage: %s', url)
+            return proxylist
+
+        soup = BeautifulSoup(html, 'html.parser')
+        proxies = self.parse_webpage(soup)
+
+        if not proxies:
+            log.error('Scrapping aborted, found no proxies in main page: %s',
+                      url)
+            return proxylist
+
+        proxylist.extend(proxies)
+
+        next_url = self.parse_next_url(soup)
+        while next_url:
+            log.debug('Waiting a little bit before scrapping next page...')
+            time.sleep(random.uniform(2.0, 4.0))
+            html = self.request_url(next_url)
+            if html is None:
+                log.error('Failed to download webpage: %s', next_url)
+                return proxylist
+
+            soup = BeautifulSoup(html, 'html.parser')
+            proxylist.extend(self.parse_webpage(soup))
+            next_url = self.parse_next_url(soup)
 
         return proxylist
 
-    def parse_webpage(self, html):
-        ports = {}
+    def parse_webpage(self, soup):
         proxylist = []
-        soup = BeautifulSoup(html, 'html.parser')
-        # soup.prettify()
 
         # Go through the scripts and check to see if they contain ports.
-        scripts = soup.findAll('script')
-        for script in scripts:
-            src = script.get('src')
-            if src is not None:
-                extracted = self.extract_ports(src)
-                # Once ports are returned, we don't need to check further.
-                if extracted is not None and len(extracted) > 0:
-                    ports = extracted
-                    break
+        ports = {}
+        for script in soup.findAll('script'):
+            js_url = script.get('src')
+            if not js_url:
+                continue
 
-        # Ensure we have some ports to work with, if not, give up.
-        if (len(ports) == 0):
-            return proxylist
+            ports = self.extract_ports(js_url)
+            # Once ports are returned, we don't need to check further.
+            if ports:
+                log.info('Found ports decoding dictionary.')
+                break
 
-        # Verify that a row contains ip/port and country.
-        container = soup.find('tr', ["anon"])
-        if not container:
-            log.error('Unable to find anonymous proxies in list.')
+        # Ensure we have found ports decoding dictionary.
+        if not ports:
+            log.error('Failed to find ports decoding dictionary.')
             return proxylist
 
         # Go through each row and pull out the information wanted.
-        ips = []
-        for row in soup.findAll('tr', ["anon"]):
+        for row in soup.findAll('tr', class_='anon'):
 
-            # Extract and check against ignored countries.
+            # Extract country and check against ignored countries.
             country_td = row.find('td', attrs={'data-label': 'Country: '})
             if country_td:
                 country = country_td.get_text().lower()
                 if country in self.ignore_country:
                     continue
 
-            # The ip/port list is provided via the checkbox, so grab it.
-            input = row.find('input')
-            if input['type'] in ('checkbox'):
-                if input.has_attr('value'):
-                    value = input['value']
-                    if value is not None:
-                        # Assume "IP | css"
-                        parts = value.split('|')
-                        if (len(parts) == 2):
-                            if parts[1] in ports:
-                                url = "{}:{}".format(parts[0], ports[parts[1]])
-                                ips.append(url)
+            # The ip/port information is contained inside checkbox input tag.
+            input_tag = row.find('input', attrs={'type': 'checkbox'})
 
-        for ip in ips:
-            ip = ip.strip()
-            if ip:
-                proxylist.append('http://{}'.format(ip))
+            if not input_tag or not input_tag.has_attr('value'):
+                log.warning('Unable to find proxy information in table row.')
+                continue
+
+            if input_tag['value']:
+                # Attribute format: IP|decoding-key
+                parts = input_tag['value'].split('|')
+                if len(parts) != 2:
+                    log.warning('Unknown proxy format on input tag.')
+                    continue
+
+                if parts[1] not in ports:
+                    log.warning('Unable to find port in decoding dictionary.')
+                    continue
+
+                proxy_url = 'http://{}:{}'.format(parts[0], ports[parts[1]])
+                proxylist.append(proxy_url)
 
         log.info('Parsed %d http proxies from webpage.', len(proxylist))
         return proxylist
 
-    # Premproxy does not have a consistent number of additional pages.
-    # Check the main page for the links for pages and extract from there.
-    def extract_pages(self):
-
-        urls = []
-        page_urls = []
-        list_url = self.base_url + '/list/'
-
-        html = self.request_url(list_url)
-        if html is None:
-            log.error('Failed to download webpage: %s', list_url)
-            return urls
-
-        # Check to see how many additional pages we can grab.
-        soup = BeautifulSoup(html, 'html.parser')
-        # soup.prettify()
+    # PremProxy.com does not have a consistent number of additional pages.
+    # Check the main page for links to additional pages and extract them.
+    def parse_next_url(self, soup):
+        url = None
 
         pagination = soup.find('ul', class_='pagination')
         if not pagination:
-            log.error('Unable to find element with proxy list.')
-            return urls
+            log.error('Unable to find pagination list.')
+            return url
 
-        links = pagination.findAll("a")
-        for link in links:
-            if not link.get_text() == 'next':
-                urls.append(link.get('href'))
+        # Check if there is an additional page to scrap.
+        for link in pagination.findAll('a'):
+            if link.get_text() == 'next':
+                url = '{}/list/{}'.format(self.base_url, link.get('href'))
+                break
 
-        # Now go through each of the page links and create the final url.
-        for url in urls:
-            if "list" in url:
-                page_urls.append(self.base_url + url)
-            else:
-                page_urls.append(list_url + url)
+        return url
 
-        return page_urls
-
-    # Premproxy.com uses javascript to obfuscate proxies port number.
-    # Builds a dictionary with decoded values for each variable.
-    # Dictionary = {'var': intValue, ...})
+    # PremProxy.com uses javascript to obfuscate proxies port number.
+    # Check if script file has the decoding function and build a dictionary
+    # with the decoding information: {'<key>': <port>, ...}.
     def extract_ports(self, js_url):
+        dictionary = {}
 
         # Download the JS file.
-        html = self.request_url(self.base_url + js_url)
-        if html is None:
-            log.error('Failed to download webpage: %s', js_url)
-            return None
+        js = self.request_url(self.base_url + js_url)
+        if js is None:
+            log.error('Failed to download javascript file: %s', js_url)
+            return dictionary
 
-        # Check to see if this script contains the packed details needed.
-        if not re.match('^eval\(function\(p,a,c,k,e,d\)', html):
-            return None
+        # Check to see if script contains the decoding function.
+        if not re.match('^eval\(function\(p,a,c,k,e,d\)', js):
+            return dictionary
 
-        # Check to see if this script contains packing info.
-        # If not, then we don't use it.
-        dictionary = {}
         try:
-            # For now, try and extract out the css/port pairs from the JS.
-            unpack = packer.unpack(html)
-            parts = re.findall(
-                '\(\\\\\'\.([\w\d]+)\\\\\'\).html\((\d+)\)', unpack)
+            # Use JSBeautifier to unpack/deobfuscate the script.
+            unpacked = unpack(js).replace("\\\'", "\'")
 
-            # Now convert the list into a dictionary.
-            for info in parts:
-                dictionary[info[0]] = info[1]
+            # Extract all the key,port pairs found in unpacked script.
+            # Format: $('.<key>').html(<port>);
+            matches = re.findall("\(\'\.([\w]+)\'\).html\((\d+)\)", unpacked)
+
+            # Convert matches list into a dictionary for decoding.
+            for match in matches:
+                dictionary[match[0]] = match[1]
 
         except Exception as e:
-            log.exception('Failed do extract ports from %s: %s.', js_url, e)
+            log.exception('Failed to extract decoding dictionary from %s: %s.',
+                          js_url, e)
 
         return dictionary

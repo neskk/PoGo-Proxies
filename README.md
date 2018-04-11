@@ -20,6 +20,7 @@ Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
 - PySocks==1.5.6
 - requests==2.18.4
 - ip2location==8.0.0
+- ~~jsbeautifier==1.7.5~~ Using updated [packer.py](proxytools/packer.py) from this library.
 
 ## Create database
 
