@@ -98,18 +98,16 @@ def get_args():
                        help='Separate proxylist for each protocol.',
                        default=False,
                        action='store_true')
-
-    group = parser.add_mutually_exclusive_group()
     group.add_argument('-Onp', '--output-no-protocol',
                        help='Proxy URL format will not include protocol.',
                        default=False,
                        action='store_true')
     group.add_argument('-Ok', '--output-kinancity',
-                       help='Format proxy URL for KinanCity.',
+                       help='Output separate file formatted for KinanCity.',
                        default=False,
                        action='store_true')
     group.add_argument('-Op', '--output-proxychains',
-                       help='Format proxy URL for ProxyChains.',
+                       help='Output separate file formatted for ProxyChains.',
                        default=False,
                        action='store_true')
 

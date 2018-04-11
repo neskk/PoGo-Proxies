@@ -159,6 +159,24 @@ def work(tester, parsers):
 def output(args):
     log.info('Outputting working proxylist.')
 
+    if args.output_kinancity:
+        proxylist = Proxy.get_valid(
+            args.output_limit,
+            args.tester_disable_anonymity,
+            args.proxy_scan_interval,
+            ProxyProtocol.HTTP)
+
+        export_kinancity(args, proxylist)
+
+    if args.output_proxychains:
+        proxylist = Proxy.get_valid(
+            args.output_limit,
+            args.tester_disable_anonymity,
+            args.proxy_scan_interval,
+            args.proxy_protocol)
+
+        export_proxychains(args, proxylist)
+
     if not args.output_separate:
         proxylist = Proxy.get_valid(
             args.output_limit,
@@ -185,28 +203,53 @@ def output(args):
         export(args, proxylist, 'http')
 
 
-def export(args, proxylist, suffix=None):
+def export(args, proxylist, prefix=None):
     if not proxylist:
         log.warning('Found no valid proxies in database.')
         return
 
-    if suffix:
-        filename = '{}_{}'.format(args.output_file, suffix)
+    if prefix:
+        filename = '{}_{}'.format(prefix, args.output_file)
     else:
         filename = args.output_file
 
     log.info('Writing %d working proxies to: %s',
              len(proxylist), filename)
 
-    if args.output_proxychains:
-        proxylist = [Proxy.url_format_proxychains(proxy)
-                     for proxy in proxylist]
-    else:
-        proxylist = [Proxy.url_format(proxy, args.output_no_protocol)
-                     for proxy in proxylist]
+    proxylist = [Proxy.url_format(proxy, args.output_no_protocol)
+                 for proxy in proxylist]
 
-    if args.output_kinancity:
-        proxylist = '[' + ','.join(proxylist) + ']'
+    utils.export_file(filename, proxylist)
+
+
+def export_kinancity(args, proxylist):
+    if not proxylist:
+        log.warning('Found no valid proxies in database.')
+        return
+
+    filename = 'kinancity_{}'.format(args.output_file)
+
+    log.info('Writing %d working proxies to: %s',
+             len(proxylist), filename)
+
+    proxylist = [Proxy.url_format(proxy) for proxy in proxylist]
+
+    proxylist = '[' + ','.join(proxylist) + ']'
+
+    utils.export_file(filename, proxylist)
+
+
+def export_proxychains(args, proxylist):
+    if not proxylist:
+        log.warning('Found no valid proxies in database.')
+        return
+
+    filename = 'proxychains_{}'.format(args.output_file)
+
+    log.info('Writing %d working proxies to: %s',
+             len(proxylist), filename)
+
+    proxylist = [Proxy.url_format_proxychains(proxy) for proxy in proxylist]
 
     utils.export_file(filename, proxylist)
 

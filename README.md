@@ -38,7 +38,7 @@ usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH]
                 [-Pp {http,socks,all}] [-Pri PROXY_REFRESH_INTERVAL]
                 [-Psi PROXY_SCAN_INTERVAL] [-Pic PROXY_IGNORE_COUNTRY]
                 [-Of OUTPUT_FILE] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT]
-                [-Os] [-Onp | -Ok | -Op] [-Tr TESTER_RETRIES]
+                [-Os] [-Onp] [-Ok] [-Op] [-Tr TESTER_RETRIES]
                 [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT]
                 [-Tmc TESTER_MAX_CONCURRENCY] [-Tda]
                 [-Tni TESTER_NOTICE_INTERVAL] [-Sr SCRAPPER_RETRIES]
@@ -62,12 +62,6 @@ optional arguments:
                         Directory where download files are saved.
   -pj PROXY_JUDGE, --proxy-judge PROXY_JUDGE
                         URL for AZenv script used to test proxies.
-  -Onp, --output-no-protocol
-                        Proxy URL format will not include protocol.
-  -Ok, --output-kinancity
-                        Format proxy URL for KinanCity.
-  -Op, --output-proxychains
-                        Format proxy URL for ProxyChains.
 
 Database:
   --db-name DB_NAME     Name of the database to be used.
@@ -101,6 +95,12 @@ Output:
                         Maximum number of proxies to output. Default: 100.
   -Os, --output-separate
                         Separate proxylist for each protocol.
+  -Onp, --output-no-protocol
+                        Proxy URL format will not include protocol.
+  -Ok, --output-kinancity
+                        Output separate file formatted for KinanCity.
+  -Op, --output-proxychains
+                        Output separate file formatted for ProxyChains.
 
 Proxy Tester:
   -Tr TESTER_RETRIES, --tester-retries TESTER_RETRIES
