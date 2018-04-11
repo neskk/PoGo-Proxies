@@ -2,14 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import configargparse
-import json
 import logging
 import os
 import requests
 import socket
 import struct
 import sys
-
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +74,11 @@ def get_args():
                              'Default: 60.'),
                        default=60,
                        type=int)
+    group.add_argument('-Pic', '--proxy-ignore-country',
+                       help=('Ignore proxies from countries in this list. '
+                             'Default: ["china"]'),
+                       default=['china'],
+                       action='append')
 
     group = parser.add_argument_group('Output')
     group.add_argument('-Of', '--output-file',
@@ -160,11 +163,6 @@ def get_args():
                              'Format: <proto>://[<user>:<pass>@]<ip>:<port> '
                              'Default: None.'),
                        default=None)
-    group.add_argument('-Sic', '--scrapper-ignore-country',
-                       help=('Ignore proxies from countries in this list. '
-                             'Default: ["china"]'),
-                       default=['china'],
-                       action='append')
     args = parser.parse_args()
 
     return args
@@ -219,20 +217,6 @@ def parse_azevn(response):
     return result
 
 
-def freegeoip_lookup(ip):
-    country = None
-    try:
-        url = 'http://www.freegeoip.net/json/{}'.format(ip)
-        response = requests.get(url)
-        location = json.loads(response.content)
-        country = location['country_name'].lower()
-
-    except Exception as e:
-        log.exception('Failed to lookup %s country: %s', ip, e)
-
-    return country
-
-
 def get_local_ip(proxy_judge):
     local_ip = None
     try:
@@ -250,11 +234,11 @@ def validate_ip(ip):
         parts = ip.split('.')
         return len(parts) == 4 and all(0 <= int(part) < 256 for part in parts)
     except ValueError:
-        # one of the 'parts' not convertible to integer.
+        # One of the "parts" is not convertible to integer.
         log.warning('Bad IP: %s', ip)
         return False
     except (AttributeError, TypeError):
-        # `ip` isn't even a string
+        # Input is not even a string.
         log.warning('Weird IP: %s', ip)
         return False
 

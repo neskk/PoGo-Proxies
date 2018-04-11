@@ -19,6 +19,7 @@ Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
 - peewee==2.8.1
 - PySocks==1.5.6
 - requests==2.18.4
+- ip2location==8.0.0
 
 ## Create database
 
@@ -35,14 +36,14 @@ usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH]
                 DB_NAME --db-user DB_USER --db-pass DB_PASS
                 [--db-host DB_HOST] [--db-port DB_PORT] [-Pf PROXY_FILE] [-Ps]
                 [-Pp {http,socks,all}] [-Pri PROXY_REFRESH_INTERVAL]
-                [-Psi PROXY_SCAN_INTERVAL] [-Of OUTPUT_FILE]
-                [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Os]
-                [-Onp | -Ok | -Op] [-Tr TESTER_RETRIES]
+                [-Psi PROXY_SCAN_INTERVAL] [-Pic PROXY_IGNORE_COUNTRY]
+                [-Of OUTPUT_FILE] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT]
+                [-Os] [-Onp | -Ok | -Op] [-Tr TESTER_RETRIES]
                 [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT]
                 [-Tmc TESTER_MAX_CONCURRENCY] [-Tda]
                 [-Tni TESTER_NOTICE_INTERVAL] [-Sr SCRAPPER_RETRIES]
                 [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT]
-                [-Sp SCRAPPER_PROXY] [-Sic SCRAPPER_IGNORE_COUNTRY]
+                [-Sp SCRAPPER_PROXY]
 
 Args that start with '--' (eg. -v) can also be set in a config file
 (config/config.ini or specified via -cf).
@@ -87,6 +88,9 @@ Proxy Sources:
   -Psi PROXY_SCAN_INTERVAL, --proxy-scan-interval PROXY_SCAN_INTERVAL
                         Scan proxies from database every X minutes.
                         Default: 60.
+  -Pic PROXY_IGNORE_COUNTRY, --proxy-ignore-country PROXY_IGNORE_COUNTRY
+                        Ignore proxies from countries in this list. Default:
+                        ["china"]
 
 Output:
   -Of OUTPUT_FILE, --output-file OUTPUT_FILE
@@ -126,9 +130,6 @@ Proxy Scrapper:
   -Sp SCRAPPER_PROXY, --scrapper-proxy SCRAPPER_PROXY
                         Use this proxy for webpage scrapping. Format:
                         <proto>://[<user>:<pass>@]<ip>:<port> Default: None.
-  -Sic SCRAPPER_IGNORE_COUNTRY, --scrapper-ignore-country SCRAPPER_IGNORE_COUNTRY
-                        Ignore proxies from countries in this list. Default:
-                        ["china"]
 ```
 
 ## Useful developer resources
@@ -140,3 +141,9 @@ Proxy Scrapper:
 - [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
 - [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
 - [ProxyChains](https://github.com/haad/proxychains)
+- [IP2Location python library](https://www.ip2location.com/developers/python)
+
+
+## Credits
+
+This software includes IP2Location LITE data available from [http://lite.ip2location.com](http://lite.ip2location.com)

@@ -29,7 +29,7 @@ class ProxyScrapper(object):
         self.backoff_factor = args.scrapper_backoff_factor
         self.timeout = args.scrapper_timeout
         self.proxy = args.scrapper_proxy
-        self.ignore_country = args.scrapper_ignore_country
+        self.ignore_country = args.proxy_ignore_country
         self.debug = args.verbose
         self.download_path = args.download_path
 

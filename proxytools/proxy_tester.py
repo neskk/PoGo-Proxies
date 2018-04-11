@@ -14,8 +14,9 @@ from requests.exceptions import ConnectionError, ConnectTimeout
 from timeit import default_timer
 from threading import Event, Lock, Thread
 
+from ip2location import IP2LocationDatabase
 from models import ProxyStatus, Proxy
-from utils import export_file, freegeoip_lookup, parse_azevn
+from utils import export_file, parse_azevn
 
 
 log = logging.getLogger(__name__)
@@ -58,10 +59,14 @@ class ProxyTester():
         self.max_concurrency = args.tester_max_concurrency
         self.disable_anonymity = args.tester_disable_anonymity
         self.notice_interval = args.tester_notice_interval
+
         self.scan_interval = args.proxy_scan_interval
+        self.ignore_country = args.proxy_ignore_country
 
         self.proxy_judge = args.proxy_judge
         self.local_ip = args.local_ip
+
+        self.ip2location = IP2LocationDatabase(args)
 
         self.running = Event()
         self.test_queue = Queue()
@@ -69,9 +74,11 @@ class ProxyTester():
         self.proxy_updates_lock = Lock()
         self.proxy_updates = {}
 
-        self.statistics = {
+        self.stats = {
             'valid': 0,
-            'fail': 0
+            'fail': 0,
+            'total_valid': 0,
+            'total_fail': 0
         }
 
         urllib3.disable_warnings()
@@ -233,10 +240,12 @@ class ProxyTester():
         proxy['scan_date'] = datetime.utcnow()
         if valid:
             proxy['fail_count'] = 0
-            self.statistics['valid'] += 1
+            self.stats['valid'] += 1
+            self.stats['total_valid'] += 1
         else:
             proxy['fail_count'] += 1
-            self.statistics['fail'] += 1
+            self.stats['fail'] += 1
+            self.stats['total_fail'] += 1
 
         proxy = Proxy.db_format(proxy)
         with self.proxy_updates_lock:
@@ -267,9 +276,13 @@ class ProxyTester():
             result = self.__test_ptc_signup(proxy, session)
 
         if result:
-            log.info('%s passed all tests!', proxy['url'])
-            country = freegeoip_lookup(proxy['ip'])
-            log.info('%s country: %s', proxy['url'], country)
+            country = self.ip2location.lookup_country(proxy['ip'])
+            log.info('%s (%s) passed all tests!', proxy['url'], country)
+
+            if country in self.ignore_country:
+                result = False
+                log.warning('%s discarded because country %s is ignored.',
+                            proxy['url'], country)
 
         self.__update_proxy(proxy, valid=result)
         session.close()
@@ -282,9 +295,15 @@ class ProxyTester():
 
             # Print statistics regularly.
             if now >= notice_timer + self.notice_interval:
-                log.info('Statistics: %d good and %d bad proxies.',
-                         self.statistics['valid'], self.statistics['fail'])
+                log.info('Tested a total of %d good and %d bad proxies.',
+                         self.stats['total_valid'], self.stats['total_fail'])
+                log.info('Tested %d good and %d bad proxies in last %ds.',
+                         self.stats['valid'], self.stats['fail'],
+                         self.notice_interval)
+
                 notice_timer = now
+                self.stats['valid'] = 0
+                self.stats['fail'] = 0
 
             try:
                 with self.proxy_updates_lock:

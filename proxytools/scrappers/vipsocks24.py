@@ -91,15 +91,17 @@ class Vipsocks24(ProxyScrapper):
             return proxylist
 
         if not is_zipfile(filename):
-            log.error('Downloaded file %s is not a Zip archive.', url)
+            log.error('File "%s" downloaded from %s is not a Zip archive.',
+                      filename, url)
             return proxylist
 
         with ZipFile(filename, 'r') as myzip:
             for proxyfile in myzip.namelist():
                 if not proxyfile.endswith('.txt'):
-                    log.debug('Skipped Zip archive file: %s', proxyfile)
+                    log.debug('Skipped file in Zip archive: %s', proxyfile)
                     continue
                 with myzip.open(proxyfile, 'rU') as proxies:
                     proxylist = proxies.readlines()
+                    break
 
         return proxylist
