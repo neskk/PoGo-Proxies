@@ -8,10 +8,12 @@ from models import ProxyProtocol, Proxy
 
 from scrappers.filereader import FileReader
 from scrappers.premproxy import Premproxy
+from scrappers.freeproxylist import Freeproxylist
 from scrappers.proxyserverlist24 import Proxyserverlist24
 from scrappers.sockslist import Sockslist
 from scrappers.socksproxylist24 import Socksproxylist24
 from scrappers.vipsocks24 import Vipsocks24
+from scrappers.socksproxy import Socksproxy
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +123,7 @@ class HTTPParser(ProxyParser):
         super(HTTPParser, self).__init__(args, ProxyProtocol.HTTP)
         self.scrappers.append(Proxyserverlist24(args))
         self.scrappers.append(Premproxy(args))
+        self.scrappers.append(Freeproxylist(args))
         log.info('HTTP proxylist scrapper initialized.')
 
 
@@ -132,4 +135,5 @@ class SOCKSParser(ProxyParser):
         self.scrappers.append(Sockslist(args))
         self.scrappers.append(Socksproxylist24(args))
         self.scrappers.append(Vipsocks24(args))
+        self.scrappers.append(Socksproxy(args))
         log.info('SOCKS proxylist scrapper initialized.')
