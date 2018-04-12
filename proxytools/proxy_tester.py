@@ -141,29 +141,31 @@ class ProxyTester():
 
     def __parse_anonymity(self, result, content):
         azenv = parse_azevn(content)
+        debug_response = False
         if azenv['remote_addr'] == self.local_ip:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Non-anonymous proxy.'
         elif azenv['x_unity_version'] != self.UNITY_VERSION:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Bad headers.'
-            filename = '{}/response_anonymity.txt'.format(self.download_path)
-            export_file(filename, content)
+            debug_response = True
         elif azenv['user_agent'] != self.USER_AGENT:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Bad user-agent.'
-            filename = '{}/response_anonymity.txt'.format(self.download_path)
-            export_file(filename, content)
+            debug_response = True
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
+
+        if debug_response and self.debug:
+            self.__export_response('response_anonymity.txt', content)
 
     def __parse_niantic(self, result, content):
         if self.NIANTIC_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            filename = '{}/response_niantic.txt'.format(self.download_path)
-            export_file(filename, content)
+            if self.debug:
+                self.__export_response('response_niantic.txt', content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -172,8 +174,8 @@ class ProxyTester():
         if self.PTC_LOGIN_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            filename = '{}/response_ptc_login.txt'.format(self.download_path)
-            export_file(filename, content)
+            if self.debug:
+                self.__export_response('response_ptc_login.txt', content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -182,8 +184,8 @@ class ProxyTester():
         if self.PTC_SIGNUP_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            filename = '{}/response_ptc_signup.txt'.format(self.download_path)
-            export_file(filename, content)
+            if self.debug:
+                self.__export_response('response_ptc_signup.txt', content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -375,3 +377,9 @@ class ProxyTester():
             self.__run_tests(proxy)
             log.debug('%s test finished in %.3f seconds.',
                       proxy['url'], default_timer() - start)
+
+    def __export_response(self, filename, content):
+        filename = '{}/{}'.format(self.download_path, filename)
+
+        export_file(filename, content)
+        log.debug('Response content saved to: %s', filename)
