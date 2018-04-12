@@ -17,13 +17,14 @@ class Socksproxylist24(ProxyScrapper):
         self.base_url = 'http://www.socksproxylist24.top/'
 
     def scrap(self):
+        self.setup_session()
         proxylist = []
         html = self.request_url(self.base_url)
 
         if html is None:
             log.error('Failed to download webpage: %s', self.base_url)
         else:
-            log.info('Parsing links webpage from: %s', self.base_url)
+            log.info('Parsing links from webpage: %s', self.base_url)
             urls = self.parse_links(html)
 
             for url in urls:
@@ -32,15 +33,15 @@ class Socksproxylist24(ProxyScrapper):
                     log.error('Failed to download webpage: %s', url)
                     continue
 
-                log.info('Parsing webpage from: %s', url)
+                log.info('Parsing proxylist from webpage: %s', url)
                 proxylist.extend(self.parse_webpage(html))
 
+        self.session.close()
         return proxylist
 
     def parse_links(self, html):
         urls = []
         soup = BeautifulSoup(html, 'html.parser')
-        # soup.prettify()
 
         for post_title in soup.find_all('h3', class_='post-title entry-title'):
             url = post_title.find('a')

@@ -25,8 +25,6 @@ class ProxyScrapper(object):
     STATUS_FORCELIST = [500, 502, 503, 504]
 
     def __init__(self, args, name):
-        self.retries = args.scrapper_retries
-        self.backoff_factor = args.scrapper_backoff_factor
         self.timeout = args.scrapper_timeout
         self.proxy = args.scrapper_proxy
         self.ignore_country = args.proxy_ignore_country
@@ -35,15 +33,17 @@ class ProxyScrapper(object):
 
         self.name = name
 
+        self.session = None
+        self.retries = Retry(
+            total=args.scrapper_retries,
+            backoff_factor=args.scrapper_backoff_factor,
+            status_forcelist=self.STATUS_FORCELIST)
+
+    def setup_session(self):
         self.session = requests.Session()
-
-        retries = Retry(total=self.retries,
-                        backoff_factor=self.backoff_factor,
-                        status_forcelist=self.STATUS_FORCELIST)
-
         # Mount handler on both HTTP & HTTPS.
-        self.session.mount('http://', HTTPAdapter(max_retries=retries))
-        self.session.mount('https://', HTTPAdapter(max_retries=retries))
+        self.session.mount('http://', HTTPAdapter(max_retries=self.retries))
+        self.session.mount('https://', HTTPAdapter(max_retries=self.retries))
 
     def request_url(self, url, referer=None):
         content = None

@@ -23,6 +23,7 @@ class Premproxy(ProxyScrapper):
         self.base_url = 'https://premproxy.com'
 
     def scrap(self):
+        self.setup_session()
         proxylist = []
 
         url = self.base_url + '/list/'
@@ -31,6 +32,7 @@ class Premproxy(ProxyScrapper):
             log.error('Failed to download webpage: %s', url)
             return proxylist
 
+        log.info('Parsing proxylist from webpage: %s', url)
         soup = BeautifulSoup(html, 'html.parser')
         proxies = self.parse_webpage(soup)
 
@@ -50,10 +52,12 @@ class Premproxy(ProxyScrapper):
                 log.error('Failed to download webpage: %s', next_url)
                 return proxylist
 
+            log.info('Parsing proxylist from webpage: %s', next_url)
             soup = BeautifulSoup(html, 'html.parser')
             proxylist.extend(self.parse_webpage(soup))
             next_url = self.parse_next_url(soup)
 
+        self.session.close()
         return proxylist
 
     def parse_webpage(self, soup):

@@ -24,6 +24,7 @@ class Sockslist(ProxyScrapper):
         )
 
     def scrap(self):
+        self.setup_session()
         proxylist = []
         for url in self.urls:
             html = self.request_url(url, self.base_url)
@@ -31,16 +32,16 @@ class Sockslist(ProxyScrapper):
                 log.error('Failed to download webpage: %s', url)
                 continue
 
-            log.info('Parsing webpage from: %s', url)
+            log.info('Parsing proxylist from webpage: %s', url)
             proxylist.extend(self.parse_webpage(html))
 
+        self.session.close()
         return proxylist
 
     def parse_webpage(self, html):
         proxylist = []
         encoding = {}
         soup = BeautifulSoup(html, 'html.parser')
-        # soup.prettify()
 
         for script in soup.find_all('script'):
             code = script.get_text()
@@ -107,8 +108,8 @@ class Sockslist(ProxyScrapper):
 
 
 # Sockslist.net uses javascript to obfuscate proxies port number.
-# Builds a dictionary with decoded values for each variable.
-# Dictionary = {'var': intValue, ...})
+# Check if script has the decoding function and build a dictionary
+# with the decoding information: {'<var>': <value>, ...}.
 def parse_crazy_encoding(code):
     dictionary = {}
     variables = code.split(';')
