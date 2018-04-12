@@ -94,13 +94,7 @@ class Sockslist(ProxyScrapper):
                 continue
 
             country = table_row.find('td', class_='t_country').get_text()
-            ignore = False
-            for ignore_country in self.ignore_country:
-                if ignore_country in country:
-                    ignore = True
-                    break
-
-            if ignore:
+            if not self.validate_country(country):
                 continue
 
             proxylist.append('{}:{}'.format(ip, port))

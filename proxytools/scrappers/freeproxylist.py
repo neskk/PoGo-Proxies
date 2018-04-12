@@ -35,7 +35,13 @@ class Freeproxylist(ProxyScrapper):
     def parse_webpage(self, soup):
         proxylist = []
 
-        table_rows = soup.find_all('tr')
+        table = soup.find('table', attrs={'id': 'proxylisttable'})
+
+        if not table:
+            log.error('Unable to find proxylist table.')
+            return proxylist
+
+        table_rows = table.find_all('tr')
         for row in table_rows:
             columns = row.find_all('td')
             if len(columns) != 8:
@@ -45,13 +51,7 @@ class Freeproxylist(ProxyScrapper):
             country = columns[3].get_text().strip().lower()
             status = columns[4].get_text().strip().lower()
 
-            ignore = False
-            for ignore_country in self.ignore_country:
-                if ignore_country in country:
-                    ignore = True
-                    break
-
-            if ignore:
+            if not self.validate_country(country):
                 continue
 
             if status == 'transparent':
