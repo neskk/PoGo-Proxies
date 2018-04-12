@@ -1,6 +1,7 @@
 config/config.ini
 downloads/
 logs/
-proxies.txt
-working_proxies.txt
 *.pyc
+proxies.txt
+working_http.txt
+working_socks.txt

@@ -81,9 +81,6 @@ def get_args():
                        action='append')
 
     group = parser.add_argument_group('Output')
-    group.add_argument('-Of', '--output-file',
-                       help='Output filename for working proxies.',
-                       default='working_proxies.txt')
     group.add_argument('-Oi', '--output-interval',
                        help=('Output working proxylist every X minutes. '
                              'Default: 60.'),
@@ -94,22 +91,30 @@ def get_args():
                              'Default: 100.'),
                        default=100,
                        type=int)
-    group.add_argument('-Os', '--output-separate',
-                       help='Separate proxylist for each protocol.',
-                       default=False,
-                       action='store_true')
     group.add_argument('-Onp', '--output-no-protocol',
                        help='Proxy URL format will not include protocol.',
                        default=False,
                        action='store_true')
-    group.add_argument('-Ok', '--output-kinancity',
-                       help='Output separate file formatted for KinanCity.',
-                       default=False,
-                       action='store_true')
-    group.add_argument('-Op', '--output-proxychains',
-                       help='Output separate file formatted for ProxyChains.',
-                       default=False,
-                       action='store_true')
+    group.add_argument('-Oh', '--output-http',
+                       help=('Output filename for working HTTP proxies. '
+                             'To disable: None/False.'),
+                       default='working_http.txt')
+    group.add_argument('-Os', '--output-socks',
+                       help=('Output filename for working SOCKS proxies. '
+                             'To disable: None/False.'),
+                       default='working_socks.txt')
+    group.add_argument('-Okc', '--output-kinancity',
+                       help=('Output filename for KinanCity proxylist. '
+                             'Default: None (disabled).'),
+                       default=None)
+    group.add_argument('-Opc', '--output-proxychains',
+                       help=('Output filename for ProxyChains proxylist. '
+                             'Default: None (disabled).'),
+                       default=None)
+    group.add_argument('-Orm', '--output-rocketmap',
+                       help=('Output filename for RocketMap proxylist. '
+                             'Default: None (disabled).'),
+                       default=None)
 
     group = parser.add_argument_group('Proxy Tester')
     group.add_argument('-Tr', '--tester-retries',

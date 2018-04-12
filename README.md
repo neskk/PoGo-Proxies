@@ -20,7 +20,7 @@ Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
 - PySocks==1.5.6
 - requests==2.18.4
 - ip2location==8.0.0
-- ~~jsbeautifier==1.7.5~~ Using updated [packer.py](proxytools/packer.py) from this library.
+- ~~jsbeautifier==1.7.5~~ Using modified [packer.py](proxytools/packer.py) from this library.
 
 ## Create database
 
@@ -38,10 +38,11 @@ usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH]
                 [--db-host DB_HOST] [--db-port DB_PORT] [-Pf PROXY_FILE] [-Ps]
                 [-Pp {http,socks,all}] [-Pri PROXY_REFRESH_INTERVAL]
                 [-Psi PROXY_SCAN_INTERVAL] [-Pic PROXY_IGNORE_COUNTRY]
-                [-Of OUTPUT_FILE] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT]
-                [-Os] [-Onp] [-Ok] [-Op] [-Tr TESTER_RETRIES]
-                [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT]
-                [-Tmc TESTER_MAX_CONCURRENCY] [-Tda]
+                [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp]
+                [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS] [-Okc OUTPUT_KINANCITY]
+                [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP]
+                [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR]
+                [-Tt TESTER_TIMEOUT] [-Tmc TESTER_MAX_CONCURRENCY] [-Tda]
                 [-Tni TESTER_NOTICE_INTERVAL] [-Sr SCRAPPER_RETRIES]
                 [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT]
                 [-Sp SCRAPPER_PROXY]
@@ -84,24 +85,31 @@ Proxy Sources:
                         Scan proxies from database every X minutes.
                         Default: 60.
   -Pic PROXY_IGNORE_COUNTRY, --proxy-ignore-country PROXY_IGNORE_COUNTRY
-                        Ignore proxies from countries in this list. Default:
-                        ["china"]
+                        Ignore proxies from countries in this list.
+                        Default: ["china"]
 
 Output:
-  -Of OUTPUT_FILE, --output-file OUTPUT_FILE
-                        Output filename for working proxies.
   -Oi OUTPUT_INTERVAL, --output-interval OUTPUT_INTERVAL
                         Output working proxylist every X minutes. Default: 60.
   -Ol OUTPUT_LIMIT, --output-limit OUTPUT_LIMIT
                         Maximum number of proxies to output. Default: 100.
-  -Os, --output-separate
-                        Separate proxylist for each protocol.
   -Onp, --output-no-protocol
                         Proxy URL format will not include protocol.
-  -Ok, --output-kinancity
-                        Output separate file formatted for KinanCity.
-  -Op, --output-proxychains
-                        Output separate file formatted for ProxyChains.
+  -Oh OUTPUT_HTTP, --output-http OUTPUT_HTTP
+                        Output filename for working HTTP proxies.
+                        To disable: None/False.
+  -Os OUTPUT_SOCKS, --output-socks OUTPUT_SOCKS
+                        Output filename for working SOCKS proxies.
+                        To disable: None/False.
+  -Okc OUTPUT_KINANCITY, --output-kinancity OUTPUT_KINANCITY
+                        Output filename for KinanCity proxylist.
+                        Default: None (disabled).
+  -Opc OUTPUT_PROXYCHAINS, --output-proxychains OUTPUT_PROXYCHAINS
+                        Output filename for ProxyChains proxylist.
+                        Default: None (disabled).
+  -Orm OUTPUT_ROCKETMAP, --output-rocketmap OUTPUT_ROCKETMAP
+                        Output filename for RocketMap proxylist.
+                        Default: None (disabled).
 
 Proxy Tester:
   -Tr TESTER_RETRIES, --tester-retries TESTER_RETRIES

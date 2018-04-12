@@ -107,15 +107,12 @@ class ProxyParser(object):
         Proxy.insert_new(proxylist)
 
 
-class SocksParser(ProxyParser):
+class FileParser(ProxyParser):
 
     def __init__(self, args):
-        super(SocksParser, self).__init__(args, ProxyProtocol.SOCKS5)
-
-        self.scrappers.append(Sockslist(args))
-        self.scrappers.append(Socksproxylist24(args))
-        self.scrappers.append(Vipsocks24(args))
-        log.info('SOCKS proxylist scrapper initialized.')
+        super(FileParser, self).__init__(args)
+        self.scrappers.append(FileReader(args))
+        log.info('Proxylist file parser initialized.')
 
 
 class HTTPParser(ProxyParser):
@@ -127,9 +124,12 @@ class HTTPParser(ProxyParser):
         log.info('HTTP proxylist scrapper initialized.')
 
 
-class FileParser(ProxyParser):
+class SOCKSParser(ProxyParser):
 
     def __init__(self, args):
-        super(FileParser, self).__init__(args)
-        self.scrappers.append(FileReader(args))
-        log.info('Proxylist file parser initialized.')
+        super(SOCKSParser, self).__init__(args, ProxyProtocol.SOCKS5)
+
+        self.scrappers.append(Sockslist(args))
+        self.scrappers.append(Socksproxylist24(args))
+        self.scrappers.append(Vipsocks24(args))
+        log.info('SOCKS proxylist scrapper initialized.')

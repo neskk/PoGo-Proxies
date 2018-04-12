@@ -10,7 +10,7 @@ from timeit import default_timer
 
 from proxytools import utils
 from proxytools.proxy_tester import ProxyTester
-from proxytools.proxy_parser import FileParser, HTTPParser, SocksParser
+from proxytools.proxy_parser import FileParser, HTTPParser, SOCKSParser
 from proxytools.models import init_database, Proxy, ProxyProtocol
 
 log = logging.getLogger()
@@ -126,6 +126,21 @@ def check_configuration(args):
 
     args.output_interval *= 60
 
+    disabled_values = ['none', 'false']
+    if args.output_http.lower() in disabled_values:
+        args.output_http = None
+    if args.output_socks.lower() in disabled_values:
+        args.output_socks = None
+    if (args.output_kinancity and
+            args.output_kinancity.lower() in disabled_values):
+        args.output_kinancity = None
+    if (args.output_proxychains and
+            args.output_proxychains.lower() in disabled_values):
+        args.output_proxychains = None
+    if (args.output_rocketmap and
+            args.output_rocketmap.lower() in disabled_values):
+        args.output_rocketmap = None
+
 
 def work(tester, parsers):
     # Fetch and insert new proxies from configured sources.
@@ -159,14 +174,17 @@ def work(tester, parsers):
 def output(args):
     log.info('Outputting working proxylist.')
 
+    working_http = []
+    working_socks = []
+
     if args.output_kinancity:
-        proxylist = Proxy.get_valid(
+        working_http = Proxy.get_valid(
             args.output_limit,
             args.tester_disable_anonymity,
             args.proxy_scan_interval,
             ProxyProtocol.HTTP)
 
-        export_kinancity(args, proxylist)
+        export_kinancity(args.output_kinancity, working_http)
 
     if args.output_proxychains:
         proxylist = Proxy.get_valid(
@@ -175,59 +193,56 @@ def output(args):
             args.proxy_scan_interval,
             args.proxy_protocol)
 
-        export_proxychains(args, proxylist)
+        export_proxychains(args.output_proxychains, proxylist)
 
-    if not args.output_separate:
-        proxylist = Proxy.get_valid(
-            args.output_limit,
-            args.tester_disable_anonymity,
-            args.proxy_scan_interval,
-            args.proxy_protocol)
-
-        export(args, proxylist)
-    else:
-        proxylist = Proxy.get_valid(
+    if args.output_rocketmap:
+        working_socks = Proxy.get_valid(
             args.output_limit,
             args.tester_disable_anonymity,
             args.proxy_scan_interval,
             ProxyProtocol.SOCKS5)
 
-        export(args, proxylist, 'socks')
+        export(args.output_rocketmap, working_socks)
 
-        proxylist = Proxy.get_valid(
-            args.output_limit,
-            args.tester_disable_anonymity,
-            args.proxy_scan_interval,
-            ProxyProtocol.HTTP)
+    if args.output_http:
+        if not working_http:
+            working_http = Proxy.get_valid(
+                args.output_limit,
+                args.tester_disable_anonymity,
+                args.proxy_scan_interval,
+                ProxyProtocol.HTTP)
 
-        export(args, proxylist, 'http')
+        export(args.output_http, working_http, args.output_no_protocol)
+
+    if args.output_socks:
+        if not working_socks:
+            working_socks = Proxy.get_valid(
+                args.output_limit,
+                args.tester_disable_anonymity,
+                args.proxy_scan_interval,
+                ProxyProtocol.SOCKS5)
+
+        export(args.output_socks, working_socks, args.output_no_protocol)
 
 
-def export(args, proxylist, prefix=None):
+def export(filename, proxylist, no_protocol=False):
     if not proxylist:
         log.warning('Found no valid proxies in database.')
         return
 
-    if prefix:
-        filename = '{}_{}'.format(prefix, args.output_file)
-    else:
-        filename = args.output_file
-
     log.info('Writing %d working proxies to: %s',
              len(proxylist), filename)
 
-    proxylist = [Proxy.url_format(proxy, args.output_no_protocol)
+    proxylist = [Proxy.url_format(proxy, no_protocol)
                  for proxy in proxylist]
 
     utils.export_file(filename, proxylist)
 
 
-def export_kinancity(args, proxylist):
+def export_kinancity(filename, proxylist):
     if not proxylist:
         log.warning('Found no valid proxies in database.')
         return
-
-    filename = 'kinancity_{}'.format(args.output_file)
 
     log.info('Writing %d working proxies to: %s',
              len(proxylist), filename)
@@ -239,12 +254,10 @@ def export_kinancity(args, proxylist):
     utils.export_file(filename, proxylist)
 
 
-def export_proxychains(args, proxylist):
+def export_proxychains(filename, proxylist):
     if not proxylist:
         log.warning('Found no valid proxies in database.')
         return
-
-    filename = 'proxychains_{}'.format(args.output_file)
 
     log.info('Writing %d working proxies to: %s',
              len(proxylist), filename)
@@ -271,12 +284,11 @@ if __name__ == '__main__':
         proxy_parsers.append(FileParser(args))
 
     protocol = args.proxy_protocol
-    log.info('Proxy protocol selected: %s', protocol)
     if protocol is None or protocol == ProxyProtocol.HTTP:
         proxy_parsers.append(HTTPParser(args))
 
     if protocol is None or protocol == ProxyProtocol.SOCKS5:
-        proxy_parsers.append(SocksParser(args))
+        proxy_parsers.append(SOCKSParser(args))
 
     try:
         work(proxy_tester, proxy_parsers)
