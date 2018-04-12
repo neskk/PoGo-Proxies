@@ -7,9 +7,11 @@ from utils import validate_ip
 from models import ProxyProtocol, Proxy
 
 from scrappers.filereader import FileReader
+from scrappers.freeproxylist import Freeproxylist
 from scrappers.premproxy import Premproxy
 from scrappers.proxyserverlist24 import Proxyserverlist24
 from scrappers.sockslist import Sockslist
+from scrappers.socksproxy import Socksproxy
 from scrappers.socksproxylist24 import Socksproxylist24
 from scrappers.vipsocks24 import Vipsocks24
 
@@ -97,6 +99,9 @@ class ProxyParser(object):
         return result
 
     def load_proxylist(self):
+        if not self.scrappers:
+            return
+
         proxylist = set()
 
         for scrapper in self.scrappers:
@@ -107,29 +112,28 @@ class ProxyParser(object):
         Proxy.insert_new(proxylist)
 
 
-class FileParser(ProxyParser):
+class MixedParser(ProxyParser):
 
     def __init__(self, args):
-        super(FileParser, self).__init__(args)
-        self.scrappers.append(FileReader(args))
-        log.info('Proxylist file parser initialized.')
+        super(MixedParser, self).__init__(args)
+        if args.proxy_file:
+            self.scrappers.append(FileReader(args))
 
 
 class HTTPParser(ProxyParser):
 
     def __init__(self, args):
         super(HTTPParser, self).__init__(args, ProxyProtocol.HTTP)
-        self.scrappers.append(Proxyserverlist24(args))
+        self.scrappers.append(Freeproxylist(args))
         self.scrappers.append(Premproxy(args))
-        log.info('HTTP proxylist scrapper initialized.')
+        self.scrappers.append(Proxyserverlist24(args))
 
 
 class SOCKSParser(ProxyParser):
 
     def __init__(self, args):
         super(SOCKSParser, self).__init__(args, ProxyProtocol.SOCKS5)
-
         self.scrappers.append(Sockslist(args))
+        self.scrappers.append(Socksproxy(args))
         self.scrappers.append(Socksproxylist24(args))
         self.scrappers.append(Vipsocks24(args))
-        log.info('SOCKS proxylist scrapper initialized.')

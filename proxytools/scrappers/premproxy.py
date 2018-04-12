@@ -47,14 +47,21 @@ class Premproxy(ProxyScrapper):
         while next_url:
             log.debug('Waiting a little bit before scrapping next page...')
             time.sleep(random.uniform(2.0, 4.0))
-            html = self.request_url(next_url)
+            html = self.request_url(next_url, url)
             if html is None:
                 log.error('Failed to download webpage: %s', next_url)
                 return proxylist
 
             log.info('Parsing proxylist from webpage: %s', next_url)
             soup = BeautifulSoup(html, 'html.parser')
-            proxylist.extend(self.parse_webpage(soup))
+
+            proxies = self.parse_webpage(soup)
+            if not proxies:
+                log.info('Scrapping finished, transparent proxies ignored.')
+                break
+
+            proxylist.extend(proxies)
+            url = next_url
             next_url = self.parse_next_url(soup)
 
         self.session.close()

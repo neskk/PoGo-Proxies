@@ -10,7 +10,7 @@ from timeit import default_timer
 
 from proxytools import utils
 from proxytools.proxy_tester import ProxyTester
-from proxytools.proxy_parser import FileParser, HTTPParser, SOCKSParser
+from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKSParser
 from proxytools.models import init_database, Proxy, ProxyProtocol
 
 log = logging.getLogger()
@@ -278,10 +278,7 @@ if __name__ == '__main__':
         args.db_name, args.db_host, args.db_port, args.db_user, args.db_pass)
 
     proxy_tester = ProxyTester(args)
-    proxy_parsers = []
-
-    if args.proxy_file:
-        proxy_parsers.append(FileParser(args))
+    proxy_parsers = [MixedParser(args)]
 
     protocol = args.proxy_protocol
     if protocol is None or protocol == ProxyProtocol.HTTP:

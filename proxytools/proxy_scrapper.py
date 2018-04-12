@@ -32,6 +32,7 @@ class ProxyScrapper(object):
         self.download_path = args.download_path
 
         self.name = name
+        log.info('Initialized proxy scrapper: %s.', name)
 
         self.session = None
         self.retries = Retry(
