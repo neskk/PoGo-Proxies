@@ -88,7 +88,14 @@ class Premproxy(ProxyScrapper):
             country_td = row.find('td', attrs={'data-label': 'Country: '})
             if country_td:
                 country = country_td.get_text().lower()
-                if country in self.ignore_country:
+
+                ignore = False
+                for ignore_country in self.ignore_country:
+                    if ignore_country in country:
+                        ignore = True
+                        break
+
+                if ignore:
                     continue
 
             # The ip/port information is contained inside checkbox input tag.

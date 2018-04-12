@@ -279,10 +279,12 @@ class ProxyTester():
             country = self.ip2location.lookup_country(proxy['ip'])
             log.info('%s (%s) passed all tests!', proxy['url'], country)
 
-            if country in self.ignore_country:
-                result = False
-                log.warning('%s discarded because country %s is ignored.',
-                            proxy['url'], country)
+            for ignore_country in self.ignore_country:
+                if ignore_country in country:
+                    result = False
+                    log.warning('%s discarded because country %s is ignored.',
+                                proxy['url'], country)
+                    break
 
         self.__update_proxy(proxy, valid=result)
         session.close()
