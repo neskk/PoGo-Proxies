@@ -104,6 +104,14 @@ class ProxyScrapper(object):
         export_file(filename, content)
         log.debug('Web page output saved to: %s', filename)
 
+    def accepted_country(self, country):
+        ignore = True
+        for ignore_country in self.ignore_country:
+            if ignore_country in country:
+                ignore = False
+                break
+        return ignore
+
     # Sub-classes are required to implement this method.
     # Method implementations must return found proxylist.
     def scrap(self):
