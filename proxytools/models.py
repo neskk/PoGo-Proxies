@@ -39,7 +39,7 @@ class USmallIntegerField(SmallIntegerField):
 
 
 db = MyRetryDB(None)
-db_schema_version = 1
+db_schema_version = 2
 db_step = 250
 
 
@@ -71,7 +71,7 @@ class ProxyStatus:
 
 
 class Proxy(BaseModel):
-    hash = IntegerField(unique=True)
+    hash = BigIntegerField(unique=True)
     ip = UIntegerField()
     port = USmallIntegerField()
     protocol = USmallIntegerField(index=True)
@@ -313,20 +313,12 @@ def migrate_database_schema(old_ver):
         query.execute()
 
     # Perform migrations here.
-    migrator = MySQLMigrator(db)
+    # migrator = MySQLMigrator(db)
 
     if old_ver < 2:
-        migrate(
-            migrator.drop_column('gym', 'gym_points'),
-            migrator.add_column('gym', 'slots_available',
-                                SmallIntegerField(null=False, default=0)),
-            migrator.add_column('gymmember', 'cp_decayed',
-                                SmallIntegerField(null=False, default=0)),
-            migrator.add_column('gymmember', 'deployment_time',
-                                DateTimeField(
-                                    null=False, default=datetime.utcnow())),
-            migrator.add_column('gym', 'total_cp',
-                                SmallIntegerField(null=False, default=0))
+        db.execute_sql(
+            'ALTER TABLE `proxy` '
+            'CHANGE COLUMN `hash` `hash` BIGINT NOT NULL;'
         )
 
     # Always log that we're done.
