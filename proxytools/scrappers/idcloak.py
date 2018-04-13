@@ -24,7 +24,7 @@ class Idcloak(ProxyScrapper):
         self.setup_session()
         page = 1
         proxylist = []
-        
+
         proxies, next_page = self.scrap_page(page)
         if not proxies:
             log.error('Scrapping aborted, found no proxies in main page: %s',
@@ -48,11 +48,11 @@ class Idcloak(ProxyScrapper):
         return proxylist
 
     def scrap_page(self, page):
-        payload = {'port[]':'all',
-                   'protocol-http':'true',
-                   'protocol-https':'true',
-                   'anonymity-medium':'true',
-                   'anonymity-high':'true',
+        payload = {'port[]': 'all',
+                   'protocol-http': 'true',
+                   'protocol-https': 'true',
+                   'anonymity-medium': 'true',
+                   'anonymity-high': 'true',
                    'page': page}
 
         html = self.post_url(self.base_url, payload)
