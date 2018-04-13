@@ -13,6 +13,7 @@ from scrappers.proxyserverlist24 import Proxyserverlist24
 from scrappers.sockslist import Sockslist
 from scrappers.socksproxy import Socksproxy
 from scrappers.socksproxylist24 import Socksproxylist24
+from scrappers.spysone import SpysHTTP, SpysHTTPS, SpysSOCKS
 from scrappers.vipsocks24 import Vipsocks24
 
 log = logging.getLogger(__name__)
@@ -105,9 +106,14 @@ class ProxyParser(object):
         proxylist = set()
 
         for scrapper in self.scrappers:
-            proxylist.update(scrapper.scrap())
+            try:
+                proxylist.update(scrapper.scrap())
+            except Exception as e:
+                log.exception('%s proxy scrapper failed: %s',
+                              type(scrapper).__name__, e)
 
-        log.info('Scrapped a total of %d proxies.', len(proxylist))
+        log.info('%s scrapped a total of %d proxies.',
+                 type(self).__name__, len(proxylist))
         proxylist = self.__parse_proxylist(proxylist).values()
         Proxy.insert_new(proxylist)
 
@@ -127,6 +133,8 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(Freeproxylist(args))
         self.scrappers.append(Premproxy(args))
         self.scrappers.append(Proxyserverlist24(args))
+        self.scrappers.append(SpysHTTP(args))
+        self.scrappers.append(SpysHTTPS(args))
 
 
 class SOCKSParser(ProxyParser):
@@ -136,4 +144,5 @@ class SOCKSParser(ProxyParser):
         self.scrappers.append(Sockslist(args))
         self.scrappers.append(Socksproxy(args))
         self.scrappers.append(Socksproxylist24(args))
+        self.scrappers.append(SpysSOCKS(args))
         self.scrappers.append(Vipsocks24(args))

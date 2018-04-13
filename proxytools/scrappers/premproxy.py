@@ -117,7 +117,7 @@ class Premproxy(ProxyScrapper):
                     log.warning('Unable to find port in decoding dictionary.')
                     continue
 
-                proxy_url = 'http://{}:{}'.format(parts[0], ports[parts[1]])
+                proxy_url = '{}:{}'.format(parts[0], ports[parts[1]])
                 proxylist.append(proxy_url)
 
         log.info('Parsed %d http proxies from webpage.', len(proxylist))

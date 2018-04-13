@@ -57,7 +57,7 @@ class Freeproxylist(ProxyScrapper):
             if status == 'transparent':
                 continue
 
-            proxy_url = 'http://{}:{}'.format(ip, port)
+            proxy_url = '{}:{}'.format(ip, port)
             proxylist.append(proxy_url)
 
         if self.debug and not proxylist:

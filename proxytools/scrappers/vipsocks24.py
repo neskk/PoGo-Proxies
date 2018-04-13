@@ -65,7 +65,8 @@ class Vipsocks24(ProxyScrapper):
 
         textarea = soup.find('textarea', onclick='this.focus();this.select()')
         if textarea is None:
-            log.warning('Unable to find textarea with proxy list.')
+            # XXX: deprecated check, webpage has changed format.
+            log.debug('Unable to find textarea with proxy list.')
             download_button = soup.find('img', alt='Download')
             if download_button is None or download_button.parent.name != 'a':
                 log.error('Unable to find download button for proxy list.')
