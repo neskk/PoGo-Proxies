@@ -9,6 +9,7 @@ from models import ProxyProtocol, Proxy
 from scrappers.filereader import FileReader
 from scrappers.freeproxylist import Freeproxylist
 from scrappers.premproxy import Premproxy
+from scrappers.idcloak import Idcloak
 from scrappers.proxyserverlist24 import Proxyserverlist24
 from scrappers.sockslist import Sockslist
 from scrappers.socksproxy import Socksproxy
@@ -135,6 +136,7 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(Proxyserverlist24(args))
         self.scrappers.append(SpysHTTP(args))
         self.scrappers.append(SpysHTTPS(args))
+        self.scrappers.append(Idcloak(args))
 
 
 class SOCKSParser(ProxyParser):
