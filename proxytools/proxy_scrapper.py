@@ -46,7 +46,7 @@ class ProxyScrapper(object):
         self.session.mount('http://', HTTPAdapter(max_retries=self.retries))
         self.session.mount('https://', HTTPAdapter(max_retries=self.retries))
 
-    def request_url(self, url, referer=None):
+    def request_url(self, url, referer=None, post={}):
         content = None
         try:
             # Setup request headers.
@@ -56,11 +56,19 @@ class ProxyScrapper(object):
             else:
                 headers = self.CLIENT_HEADERS
 
-            response = self.session.get(
-                url,
-                proxies={'http': self.proxy, 'https': self.proxy},
-                timeout=self.timeout,
-                headers=headers)
+            if post:
+                response = self.session.post(
+                    url,
+                    proxies={'http': self.proxy, 'https': self.proxy},
+                    timeout=self.timeout,
+                    headers=headers,
+                    data=post)
+            else:
+                response = self.session.get(
+                    url,
+                    proxies={'http': self.proxy, 'https': self.proxy},
+                    timeout=self.timeout,
+                    headers=headers)
 
             if response.status_code == 200:
                 content = response.content
@@ -68,32 +76,6 @@ class ProxyScrapper(object):
             response.close()
         except Exception as e:
             log.exception('Failed to request URL "%s": %s', url, e)
-
-        return content
-
-    def post_url(self, url, payload, referer=None):
-        content = None
-        try:
-            # Setup request headers.
-            if referer:
-                headers = self.CLIENT_HEADERS.copy()
-                headers['Referer'] = referer
-            else:
-                headers = self.CLIENT_HEADERS
-
-            response = self.session.post(
-                url,
-                proxies={'http': self.proxy, 'https': self.proxy},
-                timeout=self.timeout,
-                headers=headers,
-                data=payload)
-
-            if response.status_code == 200:
-                content = response.content
-
-            response.close()
-        except Exception as e:
-            log.exception('Failed to POST to URL "%s": %s', url, e)
 
         return content
 

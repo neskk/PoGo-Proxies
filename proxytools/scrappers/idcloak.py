@@ -48,14 +48,15 @@ class Idcloak(ProxyScrapper):
         return proxylist
 
     def scrap_page(self, page):
-        payload = {'port[]': 'all',
-                   'protocol-http': 'true',
-                   'protocol-https': 'true',
-                   'anonymity-medium': 'true',
-                   'anonymity-high': 'true',
-                   'page': page}
+        payload = {
+            'port[]': 'all',
+            'protocol-http': 'true',
+            'protocol-https': 'true',
+            'anonymity-medium': 'true',
+            'anonymity-high': 'true',
+            'page': page}
 
-        html = self.post_url(self.base_url, payload)
+        html = self.request_url(self.base_url, post=payload)
         if html is None:
             log.error('Failed to download webpage: %s, page: %d',
                       self.base_url, page)
