@@ -8,7 +8,7 @@ import time
 
 from bs4 import BeautifulSoup
 
-from ..packer import unpack
+from ..packer import deobfuscate
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
@@ -153,17 +153,16 @@ class Premproxy(ProxyScrapper):
             log.error('Failed to download javascript file: %s', js_url)
             return dictionary
 
-        # Check to see if script contains the decoding function.
-        if not re.match('^eval\(function\(p,a,c,k,e,d\)', js):
-            return dictionary
-
         try:
-            # Use JSBeautifier to unpack/deobfuscate the script.
-            unpacked = unpack(js).replace("\\\'", "\'")
+            # Check to see if script contains the decoding function.
+            clean_code = deobfuscate(js)
+            if not clean_code:
+                return dictionary
 
             # Extract all the key,port pairs found in unpacked script.
             # Format: $('.<key>').html(<port>);
-            matches = re.findall("\(\'\.([\w]+)\'\).html\((\d+)\)", unpacked)
+            clean_code = clean_code.replace("\\\'", "\'")
+            matches = re.findall("\(\'\.([\w]+)\'\).html\((\d+)\)", clean_code)
 
             # Convert matches list into a dictionary for decoding.
             for match in matches:

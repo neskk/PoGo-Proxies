@@ -26,9 +26,40 @@ class UnpackingError(Exception):
     pass
 
 
-def detect(source):
-    """Detects whether `source` is P.A.C.K.E.R. coded."""
-    return source.replace(' ', '').startswith('eval(function(p,a,c,k,e,')
+def convert(source):
+    pieces = source.split("'")
+    if len(pieces) < 4:
+        raise UnpackingError('Unknown p.r.o.x.y.s. encoding.')
+
+    if pieces[-3] != '.split(':
+        raise UnpackingError('Unknown p.r.o.x.y.s. encoding.')
+
+    separator = pieces[-2].decode('unicode_escape')
+
+    result = list(pieces)
+
+    for i in range(len(pieces)):
+        if not pieces[i].startswith('\\'):
+            continue
+
+        result[i] = '\\' + pieces[i]
+
+    result[-2] = '|'
+    result[-4] = pieces[-4].replace(separator, '|')
+    return "'".join(result)
+
+
+def deobfuscate(source):
+    """Detects whether `source` is obfuscated coded."""
+    source = source.replace(' ', '')
+
+    if source.startswith('eval(function(p,r,o,x,y,s)'):
+        return unpack(convert(source))
+
+    if source.startswith('eval(function(p,a,c,k,e,'):
+        return unpack(source)
+
+    return False
 
 
 def unpack(source):

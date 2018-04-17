@@ -9,7 +9,7 @@ import time
 from bs4 import BeautifulSoup
 
 from ..crazyxor import parse_crazyxor, decode_crazyxor
-from ..packer import unpack
+from ..packer import deobfuscate
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import validate_ip
 
@@ -48,12 +48,10 @@ class SpysOne(ProxyScrapper):
                 if '^' in line and ';' in line and '=' in line:
                     line = line.strip()
                     log.info('Found crazy XOR decoding script.')
-
+                    clean_code = deobfuscate(line)
+                    if clean_code:
+                        line = clean_code
                     # Check to see if script contains the decoding function.
-                    if re.match('^eval\(function\(p,r,o,x,y,s\)', line):
-                        log.warning('Found p.a.c.k.e.r javascript function.')
-                        line = unpack(line)
-
                     encoding = parse_crazyxor(line)
                     log.debug('Crazy XOR decoding dictionary: %s', encoding)
 
