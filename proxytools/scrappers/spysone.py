@@ -24,12 +24,12 @@ class SpysOne(ProxyScrapper):
     def scrap(self):
         self.setup_session()
         proxylist = []
-        for url in self.urls:
-            html = self.request_url(url, self.base_url)
-            if html is None:
-                log.error('Failed to download webpage: %s', url)
-                continue
 
+        url = self.base_url
+        html = self.request_url(url, url, post=self.post_data)
+        if html is None:
+            log.error('Failed to download webpage: %s', url)
+        else:
             log.info('Parsing proxylist from webpage: %s', url)
             proxylist.extend(self.parse_webpage(html))
             time.sleep(random.uniform(2.0, 4.0))
@@ -117,28 +117,12 @@ class SpysOne(ProxyScrapper):
         return proxylist
 
 
-class SpysHTTP(SpysOne):
-
-    def __init__(self, args):
-        super(SpysHTTP, self).__init__(args, 'spys-one-http')
-        self.base_url = 'http://spys.one/en/anonymous-proxy-list/'
-        self.urls = (
-            'http://spys.one/en/anonymous-proxy-list/',
-            'http://spys.one/en/anonymous-proxy-list/1',
-            'http://spys.one/en/anonymous-proxy-list/2'
-        )
-
-
 class SpysHTTPS(SpysOne):
 
     def __init__(self, args):
         super(SpysHTTPS, self).__init__(args, 'spys-one-https')
         self.base_url = 'http://spys.one/en/https-ssl-proxy/'
-        self.urls = (
-            'http://spys.one/en/https-ssl-proxy/',
-            'http://spys.one/en/https-ssl-proxy/1',
-            'http://spys.one/en/https-ssl-proxy/2'
-        )
+        self.post_data = 'xpp=5&xf1=1&xf4=0&xf5=0'
 
 
 class SpysSOCKS(SpysOne):
@@ -146,8 +130,4 @@ class SpysSOCKS(SpysOne):
     def __init__(self, args):
         super(SpysSOCKS, self).__init__(args, 'spys-one-socks')
         self.base_url = 'http://spys.one/en/socks-proxy-list/'
-        self.urls = (
-            'http://spys.one/en/socks-proxy-list/',
-            'http://spys.one/en/socks-proxy-list/1',
-            'http://spys.one/en/socks-proxy-list/2'
-        )
+        self.post_data = 'xpp=5&xf1=0&xf2=0&xf4=0&xf5=0'

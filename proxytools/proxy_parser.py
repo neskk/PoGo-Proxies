@@ -15,7 +15,7 @@ from scrappers.proxyserverlist24 import Proxyserverlist24
 from scrappers.sockslist import Sockslist
 from scrappers.socksproxy import Socksproxy
 from scrappers.socksproxylist24 import Socksproxylist24
-from scrappers.spysone import SpysHTTP, SpysHTTPS, SpysSOCKS
+from scrappers.spysone import SpysHTTPS, SpysSOCKS
 from scrappers.vipsocks24 import Vipsocks24
 
 log = logging.getLogger(__name__)
@@ -140,7 +140,6 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(Freeproxylist(args))
         self.scrappers.append(Premproxy(args))
         self.scrappers.append(Proxyserverlist24(args))
-        self.scrappers.append(SpysHTTP(args))
         self.scrappers.append(SpysHTTPS(args))
         self.scrappers.append(Idcloak(args))
 

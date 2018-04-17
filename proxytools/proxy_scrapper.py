@@ -50,13 +50,12 @@ class ProxyScrapper(object):
         content = None
         try:
             # Setup request headers.
+            headers = self.CLIENT_HEADERS.copy()
             if referer:
-                headers = self.CLIENT_HEADERS.copy()
                 headers['Referer'] = referer
-            else:
-                headers = self.CLIENT_HEADERS
 
             if post:
+                headers['Content-Type'] = 'application/x-www-form-urlencoded'
                 response = self.session.post(
                     url,
                     proxies={'http': self.proxy, 'https': self.proxy},
