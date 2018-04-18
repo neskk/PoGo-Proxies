@@ -8,7 +8,7 @@ Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
 - HTTP and SOCKS protocols.
 - Test proxy anonymity using an external proxy judge.
 - MySQL database for keeping proxy status.
-- Output final proxy list in several formats: Normal, KinanCity and ProxyChains.
+- Output final proxy list in several formats: Normal, KinanCity, RocketMap and ProxyChains.
 
 ## Requirements
 

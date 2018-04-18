@@ -1,3 +1,7 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import hashlib
 import logging
 import sys
 
@@ -71,7 +75,7 @@ class ProxyStatus:
 
 
 class Proxy(BaseModel):
-    hash = BigIntegerField(unique=True)
+    hash = UIntegerField(unique=True)
     ip = UIntegerField()
     port = USmallIntegerField()
     protocol = USmallIntegerField(index=True)
@@ -104,6 +108,27 @@ class Proxy(BaseModel):
             'niantic': proxy.get('niantic', ProxyStatus.UNKNOWN),
             'ptc_login': proxy.get('ptc_login', ProxyStatus.UNKNOWN),
             'ptc_signup': proxy.get('ptc_signup', ProxyStatus.UNKNOWN)}
+
+    @staticmethod
+    def generate_hash(proxy):
+        # Check if proxy is already formatted for database.
+        if isinstance(proxy['ip'], (int, long)):
+            ip = int2ip(proxy['ip'])
+            port = str(proxy['port'])
+        else:
+            ip = proxy['ip']
+            port = proxy['port']
+
+        hasher = hashlib.md5()
+        hasher.update(ip)
+        hasher.update(port)
+        if proxy['username']:
+            hasher.update(proxy['username'])
+        if proxy['password']:
+            hasher.update(proxy['password'])
+
+        # 4 bit * 8 hex chars = 32 bit = 4 bytes
+        return int(hasher.hexdigest()[:8], 16)
 
     @staticmethod
     def url_format(proxy, no_protocol=False):
@@ -243,7 +268,7 @@ class Proxy(BaseModel):
                     continue
 
                 with db.atomic():
-                    query = Proxy.insert_many(new_proxies)
+                    query = Proxy.insert_many(new_proxies).upsert()
                     if query.execute():
                         count += len(new_proxies)
             except IntegrityError as e:
@@ -266,6 +291,28 @@ class Proxy(BaseModel):
             log.exception('Failed to delete failed proxies: %s', e)
 
         log.info('Deleted %d failed proxies from database.', rows)
+
+    @staticmethod
+    def rehash_all():
+        rows = 0
+        query = Proxy.select().dicts().execute()
+        log.info('Re-hashing proxies on the database.')
+        for proxy in query:
+            try:
+                proxy_hash = Proxy.generate_hash(proxy)
+                if proxy_hash != proxy['hash']:
+                    proxy['hash'] = proxy_hash
+                    query = (Proxy
+                             .update(hash=proxy_hash)
+                             .where((Proxy.ip == proxy['ip']) &
+                                    (Proxy.port == proxy['port'])))
+                    if query.execute():
+                        rows += 1
+
+            except Exception as e:
+                log.exception('Failed to re-hash proxy: %s', e)
+
+        log.info('Re-hashed %d proxies on the database.', rows)
 
 
 class Version(BaseModel):
@@ -313,13 +360,22 @@ def migrate_database_schema(old_ver):
         query.execute()
 
     # Perform migrations here.
-    # migrator = MySQLMigrator(db)
+    migrator = MySQLMigrator(db)
 
     if old_ver < 2:
+        # Remove hash field unique index.
+        migrate(migrator.drop_index('proxy', 'proxy_hash'))
+        # Reset hash field in all proxies.
+        Proxy.update(hash=1).execute()
+        # Modify column type.
         db.execute_sql(
             'ALTER TABLE `proxy` '
-            'CHANGE COLUMN `hash` `hash` BIGINT NOT NULL;'
+            'CHANGE COLUMN `hash` `hash` INT UNSIGNED NOT NULL;'
         )
+        # Re-hash all proxies.
+        Proxy.rehash_all()
+        # Recreate hash field unique index.
+        migrate(migrator.add_index('proxy', ('hash',), True))
 
     # Always log that we're done.
     log.info('Schema upgrade complete.')
@@ -330,7 +386,7 @@ def verify_database_schema():
     if not Version.table_exists():
         log.info('Database schema is not created, initializing...')
         create_tables()
-        Version.insert(key='schema_version', val=1).execute()
+        Version.insert(key='schema_version', val=db_schema_version).execute()
     else:
         db_ver = Version.get(Version.key == 'schema_version').val
 

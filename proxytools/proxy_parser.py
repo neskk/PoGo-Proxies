@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import hashlib
 import logging
 
 from utils import validate_ip
@@ -94,14 +93,9 @@ class ProxyParser(object):
 
             parsed['ip'] = pieces[0]
             parsed['port'] = pieces[1]
+            parsed['hash'] = Proxy.generate_hash(parsed)
 
-            hasher = hashlib.md5()
-            hasher.update(pieces[0])
-            hasher.update(pieces[1])
-            proxy_hash = int(hasher.hexdigest()[:8], 16)
-
-            parsed['hash'] = proxy_hash
-            result[proxy_hash] = parsed
+            result[parsed['hash']] = parsed
 
         log.info('Successfully parsed %d proxies.', len(result))
         return result
