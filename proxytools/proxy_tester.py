@@ -257,6 +257,7 @@ class ProxyTester():
     def __run_tests(self, proxy):
         result = True
 
+        start = default_timer()
         session = requests.Session()
 
         session.mount('http://', HTTPAdapter(max_retries=self.retries))
@@ -287,6 +288,11 @@ class ProxyTester():
                     log.warning('%s discarded because country %s is ignored.',
                                 proxy['url'], country)
                     break
+
+        response_time = round(default_timer() - start, 3)
+        proxy['response_time'] = response_time
+        log.debug('%s test finished in %.3f seconds.',
+                  proxy['url'], response_time)
 
         self.__update_proxy(proxy, valid=result)
         session.close()
@@ -373,10 +379,7 @@ class ProxyTester():
                 'ptc-login': ProxyStatus.UNKNOWN,
                 'ptc-signup': ProxyStatus.UNKNOWN
             })
-            start = default_timer()
             self.__run_tests(proxy)
-            log.debug('%s test finished in %.3f seconds.',
-                      proxy['url'], default_timer() - start)
 
     def __export_response(self, filename, content):
         filename = '{}/{}'.format(self.download_path, filename)
