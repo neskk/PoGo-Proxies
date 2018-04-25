@@ -39,7 +39,7 @@ class ProxyTester():
     POGO_HEADERS['host'] = 'sso.pokemon.com'
 
     NIANTIC_URL = 'https://pgorelease.nianticlabs.com/plfe/version'
-    NIANTIC_KEYWORD = '0.97.1'
+    NIANTIC_KEYWORD = '0.99.2'
 
     PTC_LOGIN_URL = ('https://sso.pokemon.com/sso/login?service='
                      'https%3A%2F%2Fsso.pokemon.com%2Fsso%2Foauth2.0%2F'
