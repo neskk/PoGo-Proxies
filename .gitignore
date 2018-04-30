@@ -1,8 +1,8 @@
 .vscode/
-config/config.ini
+config/*
+!config/config.example.ini
 downloads/
 logs/
 *.pyc
-proxies.txt
-working_http.txt
-working_socks.txt
+*.txt
+!requirements.txt
