@@ -39,7 +39,6 @@ class ProxyTester():
     POGO_HEADERS['host'] = 'sso.pokemon.com'
 
     NIANTIC_URL = 'https://pgorelease.nianticlabs.com/plfe/version'
-    NIANTIC_KEYWORD = '0.99.2'
 
     PTC_LOGIN_URL = ('https://sso.pokemon.com/sso/login?service='
                      'https%3A%2F%2Fsso.pokemon.com%2Fsso%2Foauth2.0%2F'
@@ -59,6 +58,7 @@ class ProxyTester():
         self.max_concurrency = args.tester_max_concurrency
         self.disable_anonymity = args.tester_disable_anonymity
         self.notice_interval = args.tester_notice_interval
+        self.pogo_version = args.tester_pogo_version
 
         self.scan_interval = args.proxy_scan_interval
         self.ignore_country = args.proxy_ignore_country
@@ -161,7 +161,7 @@ class ProxyTester():
             self.__export_response('response_anonymity.txt', content)
 
     def __parse_niantic(self, result, content):
-        if self.NIANTIC_KEYWORD not in content:
+        if self.pogo_version not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
             if self.debug:
