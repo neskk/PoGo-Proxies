@@ -307,18 +307,27 @@ class ProxyTester():
 
         session.proxies = {'http': proxy['url'], 'https': proxy['url']}
 
+        latency = []
         # Send request to proxy judge.
         if not self.disable_anonymity:
+            timer = default_timer()
             result = self.__test_anonymity(proxy, session)
+            latency.append(default_timer() - timer)
         # Send request to Niantic (PoGo).
         if result:
+            timer = default_timer()
             result = self.__test_niantic(proxy, session)
+            latency.append(default_timer() - timer)
         # Send request to PTC log-in (PoGo).
         if result:
+            timer = default_timer()
             result = self.__test_ptc_login(proxy, session)
+            latency.append(default_timer() - timer)
         # Send request to PTC sign-up.
         if result:
+            timer = default_timer()
             result = self.__test_ptc_signup(proxy, session)
+            latency.append(default_timer() - timer)
 
         if result:
             country = self.ip2location.lookup_country(proxy['ip'])
@@ -330,6 +339,11 @@ class ProxyTester():
                     log.warning('%s discarded because country %s is ignored.',
                                 proxy['url'], country)
                     break
+
+        latency_total = reduce(lambda x, y: x + y, latency)
+        proxy['latency'] = int(latency_total * 1000 / len(latency))
+        log.debug('%s test finished in %.3f seconds.',
+                  proxy['url'], latency_total)
 
         self.__update_proxy(proxy, valid=result)
         session.close()
@@ -416,10 +430,7 @@ class ProxyTester():
                 'ptc-login': ProxyStatus.UNKNOWN,
                 'ptc-signup': ProxyStatus.UNKNOWN
             })
-            start = default_timer()
             self.__run_tests(proxy)
-            log.debug('%s test finished in %.3f seconds.',
-                      proxy['url'], default_timer() - start)
 
     def __export_response(self, filename, content):
         filename = '{}/{}'.format(self.download_path, filename)

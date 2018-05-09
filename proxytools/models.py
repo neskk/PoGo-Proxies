@@ -43,7 +43,7 @@ class USmallIntegerField(SmallIntegerField):
 
 
 db = MyRetryDB(None)
-db_schema_version = 2
+db_schema_version = 3
 db_step = 250
 
 
@@ -83,6 +83,7 @@ class Proxy(BaseModel):
     password = Utf8mb4CharField(null=True, max_length=32)
     insert_date = DateTimeField(index=True, default=datetime.utcnow)
     scan_date = DateTimeField(index=True, null=True)
+    latency = UIntegerField(index=True, null=True)
     fail_count = UIntegerField(index=True, default=0)
     anonymous = USmallIntegerField(index=True, default=ProxyStatus.UNKNOWN)
     niantic = USmallIntegerField(index=True, default=ProxyStatus.UNKNOWN)
@@ -103,6 +104,7 @@ class Proxy(BaseModel):
             'password': proxy['password'],
             'insert_date': proxy.get('insert_date', datetime.utcnow()),
             'scan_date': proxy.get('scan_date', None),
+            'latency': proxy.get('latency', None),
             'fail_count': proxy.get('fail_count', 0),
             'anonymous': proxy.get('anonymous', ProxyStatus.UNKNOWN),
             'niantic': proxy.get('niantic', ProxyStatus.UNKNOWN),
@@ -202,6 +204,7 @@ class Proxy(BaseModel):
             query = (Proxy
                      .select()
                      .where(conditions)
+                     .order_by(Proxy.latency.asc())
                      .limit(limit)
                      .dicts())
 
@@ -376,6 +379,13 @@ def migrate_database_schema(old_ver):
         Proxy.rehash_all()
         # Recreate hash field unique index.
         migrate(migrator.add_index('proxy', ('hash',), True))
+
+    if old_ver < 3:
+        # Add response time field.
+        migrate(
+            migrator.add_column('proxy', 'latency',
+                                UIntegerField(index=True, null=True))
+        )
 
     # Always log that we're done.
     log.info('Schema upgrade complete.')
