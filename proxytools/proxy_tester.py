@@ -105,19 +105,25 @@ class ProxyTester():
         content = self.__test_response(
             self.NIANTIC_URL, self.POGO_HEADERS)
         if self.pogo_version not in content:
-            log.error('Unable to find "%s" in Niantic response.')
+            self.__export_response('response_niantic.txt', content)
+            log.error('Unable to find "%s" in Niantic response.',
+                      self.pogo_version)
             return False
 
         content = self.__test_response(
             self.PTC_LOGIN_URL, self.POGO_HEADERS)
         if self.PTC_LOGIN_KEYWORD not in content:
-            log.error('Unable to find "%s" in Niantic response.')
+            self.__export_response('response_ptc_login.txt', content)
+            log.error('Unable to find "%s" in PTC log-in response.',
+                      self.PTC_LOGIN_KEYWORD)
             return False
 
         content = self.__test_response(
             self.PTC_SIGNUP_URL, self.BASE_HEADERS)
         if self.PTC_LOGIN_KEYWORD not in content:
-            log.error('Unable to find "%s" in Niantic response.')
+            self.__export_response('response_ptc_signup.txt', content)
+            log.error('Unable to find "%s" in PTC sign-up response.',
+                      self.PTC_LOGIN_KEYWORD)
             return False
 
         return True
@@ -130,15 +136,13 @@ class ProxyTester():
                 headers=headers,
                 timeout=self.timeout)
             if response.status_code in self.STATUS_BANLIST:
-                log.error('Request was refused by: %s .',
-                          url, self.local_ip)
+                log.error('Request was refused by: %s.', url)
             elif not response.content:
-                log.error('Unable to parse response from: %s',
-                          url, self.local_ip)
+                log.error('Unable to parse response from: %s', url)
             else:
                 content = response.content
         except Exception as e:
-            log.exception('Unable to fetch content from URL "%s": %s',
+            log.exception('Unable to fetch content from: %s - %s.',
                           url, e)
 
         return content
@@ -147,7 +151,8 @@ class ProxyTester():
     def __test_proxy(self, session, target_url, headers, parser=None):
         result = {
             'status': ProxyStatus.UNKNOWN,
-            'message': None
+            'message': None,
+            'latency': 0,
         }
 
         try:
@@ -164,8 +169,7 @@ class ProxyTester():
                 result['status'] = ProxyStatus.ERROR
                 result['message'] = 'No content in response.'
             else:
-                log.debug('Request to %s took %.3f seconds.',
-                          target_url, response.elapsed.total_seconds())
+                result['latency'] = response.elapsed.total_seconds()
                 if parser:
                     parser(result, response.content)
 
@@ -207,8 +211,6 @@ class ProxyTester():
         if self.pogo_version not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            if self.debug:
-                self.__export_response('response_niantic.txt', content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -217,8 +219,6 @@ class ProxyTester():
         if self.PTC_LOGIN_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            if self.debug:
-                self.__export_response('response_ptc_login.txt', content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -227,8 +227,6 @@ class ProxyTester():
         if self.PTC_SIGNUP_KEYWORD not in content:
             result['status'] = ProxyStatus.ERROR
             result['message'] = 'Invalid response.'
-            if self.debug:
-                self.__export_response('response_ptc_signup.txt', content)
         else:
             result['status'] = ProxyStatus.OK
             result['message'] = 'Passed test.'
@@ -243,7 +241,7 @@ class ProxyTester():
         proxy['anonymous'] = result['status']
         log.debug('%s anonymous test: %s', proxy['url'], result['message'])
 
-        return result['status'] == ProxyStatus.OK
+        return result
 
     def __test_niantic(self, proxy, session):
         result = self.__test_proxy(
@@ -255,7 +253,7 @@ class ProxyTester():
         proxy['niantic'] = result['status']
         log.debug('%s Niantic test: %s', proxy['url'], result['message'])
 
-        return result['status'] == ProxyStatus.OK
+        return result
 
     def __test_ptc_login(self, proxy, session):
         result = self.__test_proxy(
@@ -267,7 +265,7 @@ class ProxyTester():
         proxy['ptc_login'] = result['status']
         log.debug('%s PTC log-in test: %s', proxy['url'], result['message'])
 
-        return result['status'] == ProxyStatus.OK
+        return result
 
     def __test_ptc_signup(self, proxy, session):
         result = self.__test_proxy(
@@ -279,7 +277,7 @@ class ProxyTester():
         proxy['ptc_signup'] = result['status']
         log.debug('%s PTC sign-up test: %s', proxy['url'], result['message'])
 
-        return result['status'] == ProxyStatus.OK
+        return result
 
     def __update_proxy(self, proxy, valid=False):
         proxy['scan_date'] = datetime.utcnow()
@@ -308,30 +306,33 @@ class ProxyTester():
         session.proxies = {'http': proxy['url'], 'https': proxy['url']}
 
         latency = []
+        valid = False
         # Send request to proxy judge.
         if not self.disable_anonymity:
-            timer = default_timer()
             result = self.__test_anonymity(proxy, session)
-            latency.append(default_timer() - timer)
         # Send request to Niantic (PoGo).
-        if result:
-            timer = default_timer()
+        if result['status'] == ProxyStatus.OK:
+            latency.append(result['latency'])
             result = self.__test_niantic(proxy, session)
-            latency.append(default_timer() - timer)
         # Send request to PTC log-in (PoGo).
-        if result:
-            timer = default_timer()
+        if result['status'] == ProxyStatus.OK:
+            latency.append(result['latency'])
             result = self.__test_ptc_login(proxy, session)
-            latency.append(default_timer() - timer)
         # Send request to PTC sign-up.
-        if result:
-            timer = default_timer()
+        if result['status'] == ProxyStatus.OK:
+            latency.append(result['latency'])
             result = self.__test_ptc_signup(proxy, session)
-            latency.append(default_timer() - timer)
 
-        if result:
+        if result['status'] == ProxyStatus.OK:
+            latency.append(result['latency'])
+            valid = True
+            # Compute average latency (response time).
+            latency_total = reduce(lambda x, y: x + y, latency)
+            proxy['latency'] = int(latency_total * 1000 / len(latency))
+
             country = self.ip2location.lookup_country(proxy['ip'])
-            log.info('%s (%s) passed all tests!', proxy['url'], country)
+            log.info('%s (%dms - %s) passed all tests.',
+                     proxy['url'], proxy['latency'], country)
 
             for ignore_country in self.ignore_country:
                 if ignore_country in country:
@@ -340,14 +341,9 @@ class ProxyTester():
                                 proxy['url'], country)
                     break
 
-        latency_total = reduce(lambda x, y: x + y, latency)
-        proxy['latency'] = int(latency_total * 1000 / len(latency))
-        log.debug('%s test finished in %.3f seconds.',
-                  proxy['url'], latency_total)
-
-        self.__update_proxy(proxy, valid=result)
+        self.__update_proxy(proxy, valid=valid)
         session.close()
-        return result
+        return valid
 
     def __test_manager(self):
         notice_timer = default_timer()

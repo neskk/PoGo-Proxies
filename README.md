@@ -1,12 +1,14 @@
 # PoGo-Proxies
 
-Proxy checker that verifies if proxies are able to connect to PokemonGo servers.
+Proxy tester that verifies if proxies are able to connect to PokemonGo servers.
 
 ## Feature Support
 
-- Multi-threaded proxy checker.
-- HTTP and SOCKS protocols.
+- Multi-threaded proxy tester.
+- Automatic proxy scrapper from web pages.
+- Supports HTTP and SOCKS protocols.
 - Test proxy anonymity using an external proxy judge.
+- Measures proxy average latency (response time).
 - MySQL database for keeping proxy status.
 - Output final proxy list in several formats: Normal, KinanCity, RocketMap and ProxyChains.
 
