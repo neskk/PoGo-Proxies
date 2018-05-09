@@ -143,6 +143,15 @@ def check_configuration(args):
 
 
 def work(tester, parsers):
+    # Validate proxy tester benchmark responses.
+    if tester.validate_responses():
+        log.info('Proxy tester response validation was successful.')
+        # Launch proxy tester threads.
+        tester.launch()
+    else:
+        log.critical('Proxy tester response validation failed.')
+        sys.exit(1)
+
     # Fetch and insert new proxies from configured sources.
     for proxy_parser in parsers:
         proxy_parser.load_proxylist()
@@ -152,7 +161,6 @@ def work(tester, parsers):
 
     refresh_timer = default_timer()
     output_timer = default_timer()
-
     while True:
         now = default_timer()
         if now > refresh_timer + args.proxy_refresh_interval:
@@ -163,6 +171,11 @@ def work(tester, parsers):
 
             # Remove failed proxies from database.
             Proxy.clean_failed()
+
+            # Validate proxy tester benchmark responses.
+            if not tester.validate_responses():
+                log.critical('Proxy tester response validation failed.')
+                sys.exit(1)
 
         if now > output_timer + args.output_interval:
             output_timer = now

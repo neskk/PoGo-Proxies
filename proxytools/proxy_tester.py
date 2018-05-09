@@ -87,18 +87,61 @@ class ProxyTester():
             backoff_factor=args.tester_backoff_factor,
             status_forcelist=self.STATUS_FORCELIST)
 
+    def launch(self):
         # Start proxy manager thread.
         manager = Thread(name='proxy-manager',
-                         target=self.__proxy_manager)
+                         target=self.__test_manager)
         manager.daemon = True
         manager.start()
 
         # Start proxy tester request validation threads.
-        for i in range(args.tester_max_concurrency):
+        for i in range(self.max_concurrency):
             tester = Thread(name='proxy-tester-{:03}'.format(i),
                             target=self.__proxy_tester)
             tester.daemon = True
             tester.start()
+
+    def validate_responses(self):
+        content = self.__test_response(
+            self.NIANTIC_URL, self.POGO_HEADERS)
+        if self.pogo_version not in content:
+            log.error('Unable to find "%s" in Niantic response.')
+            return False
+
+        content = self.__test_response(
+            self.PTC_LOGIN_URL, self.POGO_HEADERS)
+        if self.PTC_LOGIN_KEYWORD not in content:
+            log.error('Unable to find "%s" in Niantic response.')
+            return False
+
+        content = self.__test_response(
+            self.PTC_SIGNUP_URL, self.BASE_HEADERS)
+        if self.PTC_LOGIN_KEYWORD not in content:
+            log.error('Unable to find "%s" in Niantic response.')
+            return False
+
+        return True
+
+    def __test_response(self, url, headers):
+        content = None
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=self.timeout)
+            if response.status_code in self.STATUS_BANLIST:
+                log.error('Request was refused by: %s .',
+                          url, self.local_ip)
+            elif not response.content:
+                log.error('Unable to parse response from: %s',
+                          url, self.local_ip)
+            else:
+                content = response.content
+        except Exception as e:
+            log.exception('Unable to fetch content from URL "%s": %s',
+                          url, e)
+
+        return content
 
     # Make HTTP request using selected proxy.
     def __test_proxy(self, session, target_url, headers, parser=None):
@@ -292,7 +335,7 @@ class ProxyTester():
         session.close()
         return result
 
-    def __proxy_manager(self):
+    def __test_manager(self):
         notice_timer = default_timer()
         while True:
             now = default_timer()
