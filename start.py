@@ -161,6 +161,7 @@ def work(tester, parsers):
 
     refresh_timer = default_timer()
     output_timer = default_timer()
+    errors = 0
     while True:
         now = default_timer()
         if now > refresh_timer + args.proxy_refresh_interval:
@@ -175,7 +176,9 @@ def work(tester, parsers):
             # Validate proxy tester benchmark responses.
             if not tester.validate_responses():
                 log.critical('Proxy tester response validation failed.')
-                sys.exit(1)
+                errors += 1
+                if errors > 2:
+                    sys.exit(1)
 
         if now > output_timer + args.output_interval:
             output_timer = now

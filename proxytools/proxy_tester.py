@@ -104,6 +104,9 @@ class ProxyTester():
     def validate_responses(self):
         content = self.__test_response(
             self.NIANTIC_URL, self.POGO_HEADERS)
+        if not content:
+            log.error('Request to Niantic failed.')
+            return False
         if self.pogo_version not in content:
             self.__export_response('response_niantic.txt', content)
             log.error('Unable to find "%s" in Niantic response.',
@@ -112,6 +115,9 @@ class ProxyTester():
 
         content = self.__test_response(
             self.PTC_LOGIN_URL, self.POGO_HEADERS)
+        if not content:
+            log.error('Request to PTC log-in failed.')
+            return False
         if self.PTC_LOGIN_KEYWORD not in content:
             self.__export_response('response_ptc_login.txt', content)
             log.error('Unable to find "%s" in PTC log-in response.',
@@ -120,10 +126,13 @@ class ProxyTester():
 
         content = self.__test_response(
             self.PTC_SIGNUP_URL, self.BASE_HEADERS)
-        if self.PTC_LOGIN_KEYWORD not in content:
+        if not content:
+            log.error('Request to PTC sign-up failed.')
+            return False
+        if self.PTC_SIGNUP_KEYWORD not in content:
             self.__export_response('response_ptc_signup.txt', content)
             log.error('Unable to find "%s" in PTC sign-up response.',
-                      self.PTC_LOGIN_KEYWORD)
+                      self.PTC_SIGNUP_KEYWORD)
             return False
 
         return True
