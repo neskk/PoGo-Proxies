@@ -147,7 +147,7 @@ def get_args():
                        type=int)
     group.add_argument('-Tpv', '--tester-pogo-version',
                        help='PoGo API version currently required by Niantic.',
-                       default='0.101.1')
+                       default='0.103.3')
 
     group = parser.add_argument_group('Proxy Scrapper')
     group.add_argument('-Sr', '--scrapper-retries',
