@@ -255,7 +255,7 @@ class Proxy(BaseModel):
         log.info('Processing %d proxies into the database.', len(proxylist))
         count = 0
         for idx in range(0, len(proxylist), db_step):
-            batch = proxylist[idx:idx+db_step]
+            batch = proxylist[idx:idx + db_step]
             proxies = [p['hash'] for p in batch]
             try:
                 query = (Proxy
