@@ -132,17 +132,6 @@ class Proxy(BaseModel):
             'ptc_signup': proxy.get('ptc_signup', ProxyStatus.UNKNOWN)}
 
     @staticmethod
-    def db_update_fields():
-        return [
-            'scan_date',
-            'latency',
-            'fail_count',
-            'anonymous',
-            'niantic',
-            'ptc_login',
-            'ptc_signup']
-
-    @staticmethod
     def generate_hash(proxy):
         # Check if proxy is already formatted for database.
         if isinstance(proxy['ip'], int):

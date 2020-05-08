@@ -195,7 +195,7 @@ class ProxyTester():
             result['message'] = 'Failed to connect.'
         except Exception as e:
             result['status'] = ProxyStatus.ERROR
-            result['message'] = e.msg
+            result['message'] = str(e)
 
         return result
 
@@ -306,7 +306,6 @@ class ProxyTester():
         proxy = Proxy.db_format(proxy)
         with self.proxy_updates_lock:
             self.test_hashes.remove(proxy['hash'])
-            # TODO: need to replace current DB updates with proxy.save()
             self.proxy_updates[proxy['hash']] = proxy
 
     def __run_tests(self, proxy):
@@ -385,15 +384,14 @@ class ProxyTester():
                     # Upsert updated proxies into database.
                     updates_count = len(self.proxy_updates)
                     if updates_count > 10:
-                        proxies = self.proxy_updates.values()
+                        proxies = list(self.proxy_updates.values())
                         result = False
                         with Proxy.database().atomic():
-                            # TODO: this is not working
-                            result = Proxy.bulk_update(proxies, Proxy.db_update_fields)
+                            result = Proxy.insert_many(proxies).on_conflict_replace().execute()
 
                         if result:
-                            log.debug('Upserted %d proxies to database.',
-                                      updates_count)
+                            log.info('Updated %d proxies to database.',
+                                     updates_count)
                         else:
                             log.warning('Failed to upsert %d proxies.',
                                         updates_count)
