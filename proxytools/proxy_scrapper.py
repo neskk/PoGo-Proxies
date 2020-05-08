@@ -3,7 +3,7 @@
 
 import logging
 import requests
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 from proxytools.utils import export_file
@@ -105,7 +105,7 @@ class ProxyScrapper(object):
         return result
 
     def export_webpage(self, soup, filename):
-        content = soup.prettify()#.encode('utf8')
+        content = soup.prettify()  # .encode('utf8')
         filename = '{}/{}'.format(self.download_path, filename)
 
         export_file(filename, content)
