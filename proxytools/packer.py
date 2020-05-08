@@ -14,6 +14,7 @@
 # 2018-04-11: UPDATE by neskk
 # Merged changes from: https://github.com/beautify-web/js-beautify/pull/1368
 # Made various small cosmetic tweaks.
+# 2020-05-10: Python 3 adjustments
 #
 """Unpacker for Dean Edward's p.a.c.k.e.r"""
 
@@ -26,7 +27,22 @@ class UnpackingError(Exception):
     pass
 
 
-def convert(source):
+def deobfuscate(source):
+    """Detects whether `source` is obfuscated coded."""
+    source = source.replace(' ', '')
+
+    if source.startswith('eval(function(p,r,o,x,y,s)'):
+        converted = convert_proxys(source)
+        return unpack(converted)
+
+    if source.startswith('eval(function(p,a,c,k,e,'):
+        return unpack(source)
+
+    return False
+
+
+def convert_proxys(source):
+    """Convert P.R.O.X.Y.S. to P.A.C.K.E.R."""
     pieces = source.split("'")
     if len(pieces) < 4:
         raise UnpackingError('Unknown p.r.o.x.y.s. encoding.')
@@ -34,32 +50,14 @@ def convert(source):
     if pieces[-3] != '.split(':
         raise UnpackingError('Unknown p.r.o.x.y.s. encoding.')
 
-    separator = pieces[-2].decode('unicode_escape')
+    # Find custom separator
+    separator = pieces[-2].encode().decode('unicode_escape')
 
-    result = list(pieces)
+    # Replace with standard P.A.C.K.E.R. separator
+    pieces[-2] = '|'
+    pieces[-4] = pieces[-4].replace(separator, '|')
 
-    for i in range(len(pieces)):
-        if not pieces[i].startswith('\\'):
-            continue
-
-        result[i] = '\\' + pieces[i]
-
-    result[-2] = '|'
-    result[-4] = pieces[-4].replace(separator, '|')
-    return "'".join(result)
-
-
-def deobfuscate(source):
-    """Detects whether `source` is obfuscated coded."""
-    source = source.replace(' ', '')
-
-    if source.startswith('eval(function(p,r,o,x,y,s)'):
-        return unpack(convert(source))
-
-    if source.startswith('eval(function(p,a,c,k,e,'):
-        return unpack(source)
-
-    return False
+    return "'".join(pieces)
 
 
 def unpack(source):

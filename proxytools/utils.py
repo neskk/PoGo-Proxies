@@ -147,7 +147,7 @@ def get_args():
                        type=int)
     group.add_argument('-Tpv', '--tester-pogo-version',
                        help='PoGo API version currently required by Niantic.',
-                       default='0.103.3')
+                       default='0.173.2')
 
     group = parser.add_argument_group('Proxy Scrapper')
     group.add_argument('-Sr', '--scrapper-retries',
@@ -177,7 +177,7 @@ def get_args():
 def load_file(filename):
     lines = []
 
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         for line in f:
             stripped = line.strip()
 
@@ -193,7 +193,7 @@ def load_file(filename):
 
 
 def export_file(filename, content):
-    with open(filename, 'w') as file:
+    with open(filename, 'w', encoding='utf-8') as file:
         file.truncate()
         if isinstance(content, list):
             for line in content:
@@ -227,7 +227,7 @@ def get_local_ip(proxy_judge):
     local_ip = None
     try:
         r = requests.get(proxy_judge)
-        test = parse_azevn(r.content)
+        test = parse_azevn(r.text)
         local_ip = test['remote_addr']
     except Exception as e:
         log.exception('Failed to connect to proxy judge: %s', e)

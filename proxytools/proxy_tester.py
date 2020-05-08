@@ -14,9 +14,9 @@ from requests.exceptions import ConnectionError, ConnectTimeout
 from timeit import default_timer
 from threading import Event, Lock, Thread
 
-from ip2location import IP2LocationDatabase
-from models import ProxyStatus, Proxy
-from utils import export_file, parse_azevn
+from proxytools.ip2location import IP2LocationDatabase
+from proxytools.models import ProxyStatus, Proxy
+from proxytools.utils import export_file, parse_azevn
 
 
 log = logging.getLogger(__name__)
@@ -81,7 +81,11 @@ class ProxyTester():
             'total_fail': 0
         }
 
+        # Making unverified HTTPS requests prints warning messages
+        # https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings
         urllib3.disable_warnings()
+        # logging.captureWarnings(True)
+
         self.retries = urllib3.Retry(
             total=args.tester_retries,
             backoff_factor=args.tester_backoff_factor,
@@ -146,10 +150,10 @@ class ProxyTester():
                 timeout=self.timeout)
             if response.status_code in self.STATUS_BANLIST:
                 log.error('Request was refused by: %s.', url)
-            elif not response.content:
+            elif not response.text:
                 log.error('Unable to parse response from: %s', url)
             else:
-                content = response.content
+                content = response.text
         except Exception as e:
             log.exception('Unable to fetch content from: %s - %s.',
                           url, e)
@@ -174,13 +178,13 @@ class ProxyTester():
             if response.status_code in self.STATUS_BANLIST:
                 result['status'] = ProxyStatus.BANNED
                 result['message'] = 'Proxy seems to be banned.'
-            elif not response.content:
+            elif not response.text:
                 result['status'] = ProxyStatus.ERROR
                 result['message'] = 'No content in response.'
             else:
                 result['latency'] = response.elapsed.total_seconds()
                 if parser:
-                    parser(result, response.content)
+                    parser(result, response.text)
 
             response.close()
         except ConnectTimeout:
@@ -191,7 +195,7 @@ class ProxyTester():
             result['message'] = 'Failed to connect.'
         except Exception as e:
             result['status'] = ProxyStatus.ERROR
-            result['message'] = e.message
+            result['message'] = e.msg
 
         return result
 
@@ -302,6 +306,7 @@ class ProxyTester():
         proxy = Proxy.db_format(proxy)
         with self.proxy_updates_lock:
             self.test_hashes.remove(proxy['hash'])
+            # TODO: need to replace current DB updates with proxy.save()
             self.proxy_updates[proxy['hash']] = proxy
 
     def __run_tests(self, proxy):
@@ -336,7 +341,7 @@ class ProxyTester():
             latency.append(result['latency'])
             valid = True
             # Compute average latency (response time).
-            latency_total = reduce(lambda x, y: x + y, latency)
+            latency_total = sum(latency)
             proxy['latency'] = int(latency_total * 1000 / len(latency))
 
             country = self.ip2location.lookup_country(proxy['ip'])
@@ -383,8 +388,8 @@ class ProxyTester():
                         proxies = self.proxy_updates.values()
                         result = False
                         with Proxy.database().atomic():
-                            query = Proxy.insert_many(proxies).upsert()
-                            result = query.execute()
+                            # TODO: this is not working
+                            result = Proxy.bulk_update(proxies, Proxy.db_update_fields)
 
                         if result:
                             log.debug('Upserted %d proxies to database.',
@@ -419,6 +424,7 @@ class ProxyTester():
             time.sleep(5)
 
     def __proxy_tester(self):
+        """Main function for proxy tester threads"""
         log.debug('Proxy tester started.')
 
         while True:

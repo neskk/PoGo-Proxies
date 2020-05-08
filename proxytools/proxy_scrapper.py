@@ -3,11 +3,10 @@
 
 import logging
 import requests
-
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-from utils import export_file
+from proxytools.utils import export_file
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class ProxyScrapper(object):
                     headers=headers)
 
             if response.status_code == 200:
-                content = response.content
+                content = response.text
 
             response.close()
         except Exception as e:
@@ -106,7 +105,7 @@ class ProxyScrapper(object):
         return result
 
     def export_webpage(self, soup, filename):
-        content = soup.prettify().encode('utf8')
+        content = soup.prettify()#.encode('utf8')
         filename = '{}/{}'.format(self.download_path, filename)
 
         export_file(filename, content)

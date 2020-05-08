@@ -43,14 +43,20 @@ class SpysOne(ProxyScrapper):
         soup = BeautifulSoup(html, 'html.parser')
 
         for script in soup.find_all('script'):
-            code = script.get_text()
+
+            code = script.string
+            if not code:
+                continue
+
             for line in code.split('\n'):
-                if '^' in line and ';' in line and '=' in line:
+                if 'eval' in line and 'function' in line and '^' in line:
                     line = line.strip()
                     log.info('Found crazy XOR decoding script.')
+                    # log.debug("Script: %s" % line)
                     clean_code = deobfuscate(line)
                     if clean_code:
                         line = clean_code
+                        # log.debug("Unpacked script: %s" % clean_code)
                     # Check to see if script contains the decoding function.
                     encoding = parse_crazyxor(line)
                     log.debug('Crazy XOR decoding dictionary: %s', encoding)
@@ -63,19 +69,32 @@ class SpysOne(ProxyScrapper):
 
             return proxylist
 
-        for row in soup.find_all('tr', attrs={'class': ['spy1x', 'spy1xx']}):
+        # Select table rows and skip first one.
+        table_rows = soup.find_all('tr', attrs={'class': ['spy1x', 'spy1xx']})[1:]
+
+        for row in table_rows:
             columns = row.find_all('td')
             if len(columns) != 10:
                 # Bad table row selected, moving on.
                 continue
 
-            # Format: <font>row #</font><font>ip+script</font>
+            # Format:
+            #   <td colspan="1">
+            #     <font class="spy14">
+            #         183.88.16.161
+            #         <script type="text/javascript">
+            #         document.write("<font class=spy2>:<\/font>"+(FourFourEightNine^Two3Eight)+(ThreeSixFourTwo^NineEightFour)+(FourFourEightNine^Two3Eight)+(ThreeSixFourTwo^NineEightFour))
+            #         </script>
+            #     </font>
+            #   </td>
+
+            # Grab first column
             fonts = columns[0].find_all('font')
-            if len(fonts) != 2:
+            if len(fonts) != 1:
                 log.warning('Unknown format of proxy table cell.')
                 continue
 
-            info = fonts[1]
+            info = fonts[0]
             script = info.find('script')
 
             if not script:
@@ -83,7 +102,7 @@ class SpysOne(ProxyScrapper):
                 continue
 
             # Remove script tag from contents.
-            script = script.extract().get_text()
+            script = script.extract().string
             ip = info.get_text()
 
             if not validate_ip(ip):

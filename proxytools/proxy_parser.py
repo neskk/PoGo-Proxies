@@ -3,19 +3,19 @@
 
 import logging
 
-from utils import validate_ip
-from models import ProxyProtocol, Proxy
+from proxytools.utils import validate_ip
+from proxytools.models import ProxyProtocol, Proxy
 
-from scrappers.filereader import FileReader
-from scrappers.freeproxylist import Freeproxylist
-from scrappers.premproxy import Premproxy
-from scrappers.idcloak import Idcloak
-from scrappers.proxyserverlist24 import Proxyserverlist24
-from scrappers.sockslist import Sockslist
-from scrappers.socksproxy import Socksproxy
-from scrappers.socksproxylist24 import Socksproxylist24
-from scrappers.spysone import SpysHTTPS, SpysSOCKS
-from scrappers.vipsocks24 import Vipsocks24
+from proxytools.scrappers.filereader import FileReader
+from proxytools.scrappers.freeproxylist import Freeproxylist
+from proxytools.scrappers.premproxy import Premproxy
+from proxytools.scrappers.idcloak import Idcloak
+from proxytools.scrappers.proxyserverlist24 import Proxyserverlist24
+from proxytools.scrappers.sockslist import Sockslist
+from proxytools.scrappers.socksproxy import Socksproxy
+from proxytools.scrappers.socksproxylist24 import Socksproxylist24
+from proxytools.scrappers.spysone import SpysHTTPS, SpysSOCKS
+from proxytools.scrappers.vipsocks24 import Vipsocks24
 
 log = logging.getLogger(__name__)
 
@@ -115,8 +115,8 @@ class ProxyParser(object):
 
         log.info('%s scrapped a total of %d proxies.',
                  type(self).__name__, len(proxylist))
-        proxylist = self.__parse_proxylist(proxylist).values()
-        Proxy.insert_new(proxylist)
+        proxylist = self.__parse_proxylist(proxylist)
+        Proxy.insert_new(list(proxylist.values()))
 
 
 class MixedParser(ProxyParser):
@@ -135,7 +135,7 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(Premproxy(args))
         self.scrappers.append(Proxyserverlist24(args))
         self.scrappers.append(SpysHTTPS(args))
-        self.scrappers.append(Idcloak(args))
+        # self.scrappers.append(Idcloak(args))
 
 
 class SOCKSParser(ProxyParser):

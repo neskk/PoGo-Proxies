@@ -5,25 +5,50 @@ import hashlib
 import logging
 import sys
 
-from peewee import (Model, OperationalError, IntegrityError, CompositeKey,
+from peewee import (DatabaseProxy, Model, OperationalError, IntegrityError, CompositeKey,
                     CharField, DateTimeField,
                     IntegerField, SmallIntegerField, BigIntegerField)
 from playhouse.pool import PooledMySQLDatabase
-from playhouse.shortcuts import RetryOperationalError
 from playhouse.migrate import migrate, MySQLMigrator
 
 from datetime import datetime, timedelta
 
-from utils import ip2int, int2ip
+from proxytools.utils import ip2int, int2ip
 
 
 log = logging.getLogger(__name__)
 
+# http://docs.peewee-orm.com/en/latest/peewee/database.html#dynamically-defining-a-database
+db = DatabaseProxy()
+db_schema_version = 3
+db_step = 250
 
-class MyRetryDB(RetryOperationalError, PooledMySQLDatabase):
-    pass
+# Connect to a MySQL database on network.
+def init_database(db_name, db_host, db_port, db_user, db_pass):
+    log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
 
+    database = PooledMySQLDatabase(
+        db_name,
+        user=db_user,
+        password=db_pass,
+        host=db_host,
+        port=db_port,
+        stale_timeout=60,
+        max_connections=None,
+        charset='utf8mb4')
 
+    # Initialize Database Proxy
+    db.initialize(database)
+
+    try:
+        verify_database_schema()
+        verify_table_encoding(db_name)
+    except Exception as e:
+        log.exception('Failed to verify database schema: %s', e)
+        sys.exit(1)
+    return db
+
+# Custom fields
 class Utf8mb4CharField(CharField):
     def __init__(self, max_length=191, *args, **kwargs):
         self.max_length = max_length
@@ -31,20 +56,15 @@ class Utf8mb4CharField(CharField):
 
 
 class UBigIntegerField(BigIntegerField):
-    db_field = 'bigint unsigned'
+    field_type = 'bigint unsigned'
 
 
 class UIntegerField(IntegerField):
-    db_field = 'int unsigned'
+    field_type = 'int unsigned'
 
 
 class USmallIntegerField(SmallIntegerField):
-    db_field = 'smallint unsigned'
-
-
-db = MyRetryDB(None)
-db_schema_version = 3
-db_step = 250
+    field_type = 'smallint unsigned'
 
 
 class BaseModel(Model):
@@ -112,9 +132,20 @@ class Proxy(BaseModel):
             'ptc_signup': proxy.get('ptc_signup', ProxyStatus.UNKNOWN)}
 
     @staticmethod
+    def db_update_fields():
+        return [
+            'scan_date',
+            'latency',
+            'fail_count',
+            'anonymous',
+            'niantic',
+            'ptc_login',
+            'ptc_signup']
+
+    @staticmethod
     def generate_hash(proxy):
         # Check if proxy is already formatted for database.
-        if isinstance(proxy['ip'], (int, long)):
+        if isinstance(proxy['ip'], int):
             ip = int2ip(proxy['ip'])
             port = str(proxy['port'])
         else:
@@ -122,8 +153,8 @@ class Proxy(BaseModel):
             port = proxy['port']
 
         hasher = hashlib.md5()
-        hasher.update(ip)
-        hasher.update(port)
+        hasher.update(ip.encode('utf-8'))
+        hasher.update(port.encode('utf-8'))
         if proxy['username']:
             hasher.update(proxy['username'])
         if proxy['password']:
@@ -247,7 +278,7 @@ class Proxy(BaseModel):
         except OperationalError as e:
             log.exception('Failed to get proxies to scan from database: %s', e)
 
-        return result
+        return query
 
     # Filter proxylist and insert only new proxies to the database.
     @staticmethod
@@ -271,8 +302,8 @@ class Proxy(BaseModel):
                     continue
 
                 with db.atomic():
-                    query = Proxy.insert_many(new_proxies).upsert()
-                    if query.execute():
+                    query = Proxy.insert_many(new_proxies).execute()
+                    if query:
                         count += len(new_proxies)
             except IntegrityError as e:
                 log.exception('Unable to insert new proxies: %s', e)
@@ -285,7 +316,7 @@ class Proxy(BaseModel):
     def clean_failed():
         rows = 0
         try:
-            with db.execution_context():
+            with db:
                 query = (Proxy
                          .delete()
                          .where(Proxy.fail_count >= 5))
@@ -325,12 +356,11 @@ class Version(BaseModel):
     class Meta:
         primary_key = False
 
+MODELS = [Proxy, Version]
 
 def create_tables():
-    tables = [Proxy, Version]
-
-    with db.execution_context():
-        for table in tables:
+    with db:
+        for table in MODELS:
             if not table.table_exists():
                 log.info('Creating database table: %s', table.__name__)
                 db.create_tables([table], safe=True)
@@ -340,10 +370,9 @@ def create_tables():
 
 
 def drop_tables():
-    tables = [Proxy, Version]
-    with db.execution_context():
+    with db:
         db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
-        for table in tables:
+        for table in MODELS:
             if table.table_exists():
                 log.info('Dropping database table: %s', table.__name__)
                 db.drop_tables([table], safe=True)
@@ -355,7 +384,7 @@ def migrate_database_schema(old_ver):
     log.info('Detected database version %i, updating to %i...',
              old_ver, db_schema_version)
 
-    with db.execution_context():
+    with db:
         # Update database schema version.
         query = (Version
                  .update(val=db_schema_version)
@@ -413,7 +442,7 @@ def verify_database_schema():
 
 
 def verify_table_encoding(db_name):
-    with db.execution_context():
+    with db:
         cmd_sql = '''
             SELECT table_name FROM information_schema.tables WHERE
             table_collation != "utf8mb4_unicode_ci"
@@ -439,24 +468,3 @@ def verify_table_encoding(db_name):
                     COLLATE utf8mb4_unicode_ci;''' % str(table[0])
                 db.execute_sql(cmd_sql)
             db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
-
-
-def init_database(db_name, db_host, db_port, db_user, db_pass):
-    log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
-    db.init(
-        db_name,
-        user=db_user,
-        password=db_pass,
-        host=db_host,
-        port=db_port,
-        stale_timeout=60,
-        max_connections=None,
-        charset='utf8mb4')
-
-    try:
-        verify_database_schema()
-        verify_table_encoding(db_name)
-    except Exception as e:
-        log.exception('Failed to verify database schema: %s', e)
-        sys.exit(1)
-    return db
