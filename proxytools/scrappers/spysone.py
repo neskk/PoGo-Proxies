@@ -49,7 +49,7 @@ class SpysOne(ProxyScrapper):
                 continue
 
             for line in code.split('\n'):
-                if 'eval' in line and 'function' in line and '^' in line:
+                if '^' in line and ';' in line and '=' in line:
                     line = line.strip()
                     log.info('Found crazy XOR decoding script.')
                     # log.debug("Script: %s" % line)
