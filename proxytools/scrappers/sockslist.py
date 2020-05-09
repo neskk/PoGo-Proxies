@@ -35,7 +35,11 @@ class Sockslist(ProxyScrapper):
                 continue
 
             log.info('Parsing proxylist from webpage: %s', url)
-            proxylist.extend(self.parse_webpage(html))
+            proxies = self.parse_webpage(html)
+            if not proxies:
+                break
+
+            proxylist.extend(proxies)
 
         self.session.close()
         return proxylist
@@ -46,7 +50,9 @@ class Sockslist(ProxyScrapper):
         soup = BeautifulSoup(html, 'html.parser')
 
         for script in soup.find_all('script'):
-            code = script.get_text()
+            code = script.string
+            if not code:
+                continue
             for line in code.split('\n'):
                 if '^' in line and ';' in line and ' = ' in line:
                     line = line.strip()
@@ -81,10 +87,11 @@ class Sockslist(ProxyScrapper):
                 log.warning('Invalid IP found: %s', ip)
                 continue
 
-            port_text = table_row.find('td', class_='t_port').get_text()
+            port_td = table_row.find('td', class_='t_port')
+            port_script = port_td.find('script').string
             try:
                 # Find encoded string with proxy port.
-                m = re.search('(?<=document.write\()([\w\^]+)\)', port_text)
+                m = re.search('(?<=document.write\()([\w\^]+)\)', port_script)
                 # Decode proxy port using secret encoding dictionary.
                 port = decode_crazyxor(encoding, m.group(1))
                 if not port.isdigit():
@@ -92,7 +99,7 @@ class Sockslist(ProxyScrapper):
                     continue
 
             except Exception as e:
-                log.error('Unable to parse proxy port: %s', repr(e))
+                log.error('Unable to parse proxy port: %s', e)
                 continue
 
             country = table_row.find('td', class_='t_country').get_text()
