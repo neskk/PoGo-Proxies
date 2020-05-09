@@ -1,7 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import io
 import logging
+import json
+import re
+import time
 
 from bs4 import BeautifulSoup
 from zipfile import ZipFile, is_zipfile
@@ -72,9 +76,7 @@ class Vipsocks24(ProxyScrapper):
                 log.error('Unable to find download button for proxy list.')
             else:
                 download_url = download_button.parent.get('href')
-
-                log.info('Downloading proxylist from: %s', download_url)
-                proxylist = self.download_proxylist(download_url)
+                proxylist = self.parse_workupload(download_url)
         else:
             proxylist = textarea.get_text().split('\n')
 
@@ -84,9 +86,45 @@ class Vipsocks24(ProxyScrapper):
         log.info('Parsed %d socks5 proxies from webpage.', len(proxylist))
         return proxylist
 
+    def parse_workupload(self, url):
+        proxylist = []
+        # First request initial page
+        html = self.request_url(url)
+        time.sleep(1.5)
+        # Then request download page (start)
+        url = url.replace('file', 'start')
+        html = self.request_url(url)
+        soup = BeautifulSoup(html, 'html.parser')
+
+        api_url = ''
+        pattern = re.compile(r"ajax\(\{\s*url:\s*'(/api/file/getDownloadServer/.*)'")
+        for script in soup.find_all('script'):
+            code = script.string
+            if not code:
+                continue
+
+            search = pattern.search(code)
+            if search:
+                api_url = 'https://workupload.com' + search.group(1)
+
+        if not api_url:
+            log.error('Failed to find WorkUpload API URL: %s', url)
+            self.export_webpage(soup, 'workupload-' + self.name + '.html')
+            return proxylist
+
+        res = self.request_url(api_url)
+        data = json.loads(res)
+        if not data['success']:
+            log.error('Bad response from WorkUpload API: %s', data)
+            return proxylist
+
+        download_url = data['data']['url']
+        return self.download_proxylist(download_url)
+
     def download_proxylist(self, url):
         proxylist = []
 
+        log.info('Downloading proxylist from: %s', url)
         filename = '{}/{}.zip'.format(self.download_path, self.name)
         if not self.download_file(url, filename):
             log.error('Failed proxylist download: %s', url)
@@ -102,8 +140,9 @@ class Vipsocks24(ProxyScrapper):
                 if not proxyfile.endswith('.txt'):
                     log.debug('Skipped file in Zip archive: %s', proxyfile)
                     continue
-                with myzip.open(proxyfile, 'rU') as proxies:
-                    proxylist = proxies.readlines()
+                with myzip.open(proxyfile, 'r') as proxies:
+                    for line in io.TextIOWrapper(proxies, 'utf8'):
+                        proxylist.append(line)
                     break
 
         return proxylist

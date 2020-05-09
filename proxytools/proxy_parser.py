@@ -135,7 +135,7 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(Premproxy(args))
         self.scrappers.append(Proxyserverlist24(args))
         self.scrappers.append(SpysHTTPS(args))
-        # self.scrappers.append(Idcloak(args))
+        # self.scrappers.append(Idcloak(args))  # OFFLINE
 
 
 class SOCKSParser(ProxyParser):
@@ -144,6 +144,6 @@ class SOCKSParser(ProxyParser):
         super(SOCKSParser, self).__init__(args, ProxyProtocol.SOCKS5)
         self.scrappers.append(Sockslist(args))
         self.scrappers.append(Socksproxy(args))
-        self.scrappers.append(Socksproxylist24(args))
         self.scrappers.append(SpysSOCKS(args))
         self.scrappers.append(Vipsocks24(args))
+        # self.scrappers.append(Socksproxylist24(args))  # Duplicate of VipSocks24
