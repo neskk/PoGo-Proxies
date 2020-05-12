@@ -1,6 +1,6 @@
 # PoGo-Proxies
 
-Proxy tester that verifies if proxies are able to connect to PokemonGo servers.
+Python proxy tester that verifies if proxies are able to connect to PokemonGo servers.
 
 ## Feature Support
 
@@ -11,6 +11,30 @@ Proxy tester that verifies if proxies are able to connect to PokemonGo servers.
 - Measures proxy average latency (response time).
 - MySQL database for keeping proxy status.
 - Output final proxy list in several formats: Normal, KinanCity, RocketMap and ProxyChains.
+
+## [FAQ](FAQ.md)
+
+
+## Useful developer resources
+
+- [Peewee ORM](http://docs.peewee-orm.com/en/latest/)
+- [Python Requests](https://requests.readthedocs.io/en/master/)
+- [urllib3](https://urllib3.readthedocs.io/en/latest/)
+- [urllib3 - set max retries](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
+- [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
+- [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
+- [ProxyChains](https://github.com/haad/proxychains)
+- [IP2Location python library](https://www.ip2location.com/developers/python)
+
+
+## Credits
+
+This software includes IP2Location LITE data available from [http://lite.ip2location.com](http://lite.ip2location.com)
+
+## Disclaimer
+
+This software allows scrapping of public proxies and only provides access to them.
+We're not responsible for these proxies and we're not responsible for what users do with them.
 
 ## Requirements
 
@@ -141,19 +165,3 @@ Proxy Scrapper:
                         Use this proxy for webpage scrapping. Format:
                         <proto>://[<user>:<pass>@]<ip>:<port> Default: None.
 ```
-
-## Useful developer resources
-
-- [Python Requests](http://docs.python-requests.org/en/master/)
-- [urllib3](https://urllib3.readthedocs.io/en/latest/)
-- [urllib3 - set max retries](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
-- [Peewee 2.10.2 API Documentation](http://docs.peewee-orm.com/en/2.10.2/peewee/api.html)
-- [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
-- [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
-- [ProxyChains](https://github.com/haad/proxychains)
-- [IP2Location python library](https://www.ip2location.com/developers/python)
-
-
-## Credits
-
-This software includes IP2Location LITE data available from [http://lite.ip2location.com](http://lite.ip2location.com)
