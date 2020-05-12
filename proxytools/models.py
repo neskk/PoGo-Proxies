@@ -13,7 +13,7 @@ from playhouse.migrate import migrate, MySQLMigrator
 
 from datetime import datetime, timedelta
 
-from proxytools.utils import ip2int, int2ip
+from .utils import ip2int, int2ip
 
 
 log = logging.getLogger(__name__)

@@ -14,9 +14,9 @@ from requests.exceptions import ConnectionError, ConnectTimeout
 from timeit import default_timer
 from threading import Event, Lock, Thread
 
-from proxytools.ip2location import IP2LocationDatabase
-from proxytools.models import ProxyStatus, Proxy
-from proxytools.utils import export_file, parse_azevn
+from .ip2location import IP2LocationDatabase
+from .models import ProxyStatus, Proxy
+from .utils import export_file, parse_azevn
 
 
 log = logging.getLogger(__name__)

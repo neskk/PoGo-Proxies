@@ -3,19 +3,21 @@
 
 import logging
 
-from proxytools.utils import validate_ip
-from proxytools.models import ProxyProtocol, Proxy
+from .utils import validate_ip
+from .models import ProxyProtocol, Proxy
 
-from proxytools.scrappers.filereader import FileReader
-from proxytools.scrappers.freeproxylist import Freeproxylist
-from proxytools.scrappers.premproxy import Premproxy
-from proxytools.scrappers.idcloak import Idcloak
-from proxytools.scrappers.proxyserverlist24 import Proxyserverlist24
-from proxytools.scrappers.sockslist import Sockslist
-from proxytools.scrappers.socksproxy import Socksproxy
-from proxytools.scrappers.socksproxylist24 import Socksproxylist24
-from proxytools.scrappers.spysone import SpysHTTPS, SpysSOCKS
-from proxytools.scrappers.vipsocks24 import Vipsocks24
+from .scrappers.filereader import FileReader
+from .scrappers.freeproxylist import Freeproxylist
+from .scrappers.premproxy import Premproxy
+from .scrappers.idcloak import Idcloak
+from .scrappers.proxyserverlist24 import Proxyserverlist24
+from .scrappers.sockslist import Sockslist
+from .scrappers.socksproxy import Socksproxy
+from .scrappers.socksproxylist24 import Socksproxylist24
+from .scrappers.spysone import SpysHTTPS, SpysSOCKS
+from .scrappers.vipsocks24 import Vipsocks24
+
+from .scrappers.proxynova import ProxyNova
 
 log = logging.getLogger(__name__)
 

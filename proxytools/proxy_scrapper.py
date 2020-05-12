@@ -6,7 +6,7 @@ import requests
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-from proxytools.utils import export_file
+from .utils import export_file
 
 log = logging.getLogger(__name__)
 
