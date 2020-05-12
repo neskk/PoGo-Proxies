@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import random
+# import random
 import re
-import time
+# import time
 
 from bs4 import BeautifulSoup
 
@@ -32,7 +32,7 @@ class SpysOne(ProxyScrapper):
         else:
             log.info('Parsing proxylist from webpage: %s', url)
             proxylist.extend(self.parse_webpage(html))
-            time.sleep(random.uniform(2.0, 4.0))
+            # time.sleep(random.uniform(2.0, 4.0))
 
         self.session.close()
         return proxylist
