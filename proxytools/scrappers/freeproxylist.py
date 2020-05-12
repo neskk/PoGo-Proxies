@@ -25,15 +25,14 @@ class Freeproxylist(ProxyScrapper):
             log.error('Failed to download webpage: %s', self.base_url)
         else:
             log.info('Parsing proxylist from webpage: %s', self.base_url)
-
-            soup = BeautifulSoup(html, 'html.parser')
-            proxylist = self.parse_webpage(soup)
+            proxylist = self.parse_webpage(html)
 
         self.session.close()
         return proxylist
 
-    def parse_webpage(self, soup):
+    def parse_webpage(self, html):
         proxylist = []
+        soup = BeautifulSoup(html, 'html.parser')
 
         table = soup.find('table', attrs={'id': 'proxylisttable'})
 

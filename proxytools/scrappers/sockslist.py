@@ -77,6 +77,7 @@ class Sockslist(ProxyScrapper):
 
             return proxylist
 
+        pattern = re.compile(r"document.write\(([\w\^]+)\)")
         for table_row in table.find_all('tr'):
             ip_td = table_row.find('td', class_='t_ip')
             if ip_td is None:
@@ -91,7 +92,7 @@ class Sockslist(ProxyScrapper):
             port_script = port_td.find('script').string
             try:
                 # Find encoded string with proxy port.
-                m = re.search('(?<=document.write\()([\w\^]+)\)', port_script)
+                m = pattern.search(port_script)
                 # Decode proxy port using secret encoding dictionary.
                 port = decode_crazyxor(encoding, m.group(1))
                 if not port.isdigit():

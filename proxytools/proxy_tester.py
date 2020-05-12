@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 class ProxyTester():
-    USER_AGENT = 'pokemongo/0 CFNetwork/894 Darwin/17.4.0'
+    USER_AGENT = 'pokemongo/0 CFNetwork/897.1 Darwin/17.5.0'
     UNITY_VERSION = '2017.1.2f1'
 
     BASE_HEADERS = {

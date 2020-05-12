@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 
 class ProxyScrapper(object):
     REFERER = 'http://google.com'
-    USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:59.0) '
-                  'Gecko/20100101 Firefox/59.0')
+    USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:76.0) '
+                  'Gecko/20100101 Firefox/76.0')
     CLIENT_HEADERS = {
         'User-Agent': USER_AGENT,
         'Accept-Language': 'en-US,en',
