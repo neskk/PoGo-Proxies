@@ -137,6 +137,7 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(Premproxy(args))
         self.scrappers.append(Proxyserverlist24(args))
         self.scrappers.append(SpysHTTPS(args))
+        self.scrappers.append(ProxyNova(args))
         # self.scrappers.append(Idcloak(args))  # OFFLINE
 
 
