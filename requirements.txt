@@ -3,6 +3,6 @@ configargparse==1.2.3
 pymysql==0.9.3
 peewee==3.13.3
 PySocks==1.7.1
-requests==2.23.0
+requests==2.31.0
 ip2location==8.4.1
 #jsbeautifier==1.11.0
